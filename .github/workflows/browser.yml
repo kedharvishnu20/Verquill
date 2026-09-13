@@ -65,7 +65,7 @@ jobs:
       # failure nobody can see the state of is a failure nobody can fix.
       - name: Upload failure artefacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: browser-failure-artefacts
           path: |
