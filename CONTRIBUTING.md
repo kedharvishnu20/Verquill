@@ -110,13 +110,6 @@ to drift are what made this codebase hard to trust.
 each was fixed the way it was. Read it before trusting any claim about how
 something works — including a claim in this file.
 
-[`docs/DOCUMENTATION_GUIDE.md`](docs/DOCUMENTATION_GUIDE.md) is the format every
-source header and every document here follows, with the reasoning behind each
-rule. Read it before writing a module header; it will save you a review round.
-The short version: write down what is **not** visible from reading the code,
-and any number in prose that is derived from the code needs a test in the same
-commit.
-
 ## Conventions
 
 - Prettier, enforced by `npm run format:check` in CI.
