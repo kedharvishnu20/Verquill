@@ -2130,6 +2130,26 @@
           "Fill cannot set a file input for security reasons — use an Upload from Storage step.",
         );
       }
+      // A password field is refused the same way, and for a stronger reason.
+      //
+      // The ethics engine has documented "password fields in form filling" as
+      // a hard block since the audit. That block filters the pipeline for
+      // steps of type FORM_FILL — which the registry does not have; the step
+      // is FILL — so it has matched nothing on every pipeline ever run. The
+      // in-page guard that would have caught it lives in form-filler.js,
+      // reachable only through an VQ_FORM_FILL_ROW message that nothing
+      // dispatches. Both copies of the protection were unreachable, so the
+      // path a user actually builds would type a credential into a login form
+      // and submit it, while the documentation said it could not.
+      //
+      // Here, because this is the one function both fill modes go through.
+      if (el.type === "password") {
+        throw new Error(
+          "Fill will not type into a password field. Automating a credential " +
+            "into a login form is the one thing this step refuses outright — " +
+            "use a SESSION step to reuse a login you made yourself.",
+        );
+      }
 
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       await _sleep(100);

@@ -1145,8 +1145,6 @@ function _gateArgs(payload, tabId) {
       authorized: payload.captchaAuthorized,
     },
     tabId,
-    confirmed: payload.confirmed ?? false,
-    rowCount: payload.rowCount ?? 0,
     bypassRobots: payload.bypassRobots ?? false,
     // Gate 5's two inputs. Asked for only when the run will actually use the
     // pool: warning about proxy geography for a run going direct would be the

@@ -22,9 +22,6 @@ import { scanText } from "../ethics/pii-detector.js";
 const MODULE = "ethics-engine";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const MAX_FORM_ROWS_DEFAULT = 500;
-const MAX_FORM_ROWS_CONFIRMED = 5000;
-const MIN_INTER_ROW_DELAY_MS = 800;
 const MAX_REQUESTS_BEFORE_WARN = 100;
 
 /**
@@ -416,44 +413,6 @@ async function _gate7_overlayReadiness(steps, tabId) {
   return null;
 }
 
-// ── FORM_FILL specific checks ─────────────────────────────────────────────────
-
-function _checkFormFillHardConstraints(config, rowCount, confirmed) {
-  // Delay floor
-  const minDelay = config.interRowDelay?.min ?? 1200;
-  if (minDelay < MIN_INTER_ROW_DELAY_MS) {
-    throw new EthicsBlock(
-      "DelayFloor",
-      `Inter-row delay ${minDelay}ms < minimum ${MIN_INTER_ROW_DELAY_MS}ms`,
-    );
-  }
-
-  // Row cap
-  const cap = confirmed ? MAX_FORM_ROWS_CONFIRMED : MAX_FORM_ROWS_DEFAULT;
-  if (rowCount > cap) {
-    throw new EthicsBlock(
-      "SubmitCapExceeded",
-      `Row count ${rowCount} exceeds cap ${cap} (confirmed=${confirmed})`,
-    );
-  }
-
-  // Field type checks (password / hidden)
-  for (const mapping of config.fieldMappings ?? []) {
-    if (mapping.inputType === "password") {
-      throw new EthicsBlock(
-        "PasswordField",
-        `Password field in mapping: ${mapping.selector}`,
-      );
-    }
-    if (mapping.inputType === "hidden") {
-      throw new EthicsBlock(
-        "HiddenField",
-        `Hidden field in mapping: ${mapping.selector}`,
-      );
-    }
-  }
-}
-
 // ── Main orchestrator ─────────────────────────────────────────────────────────
 
 /**
@@ -474,8 +433,6 @@ function _checkFormFillHardConstraints(config, rowCount, confirmed) {
  * @param {string}   [opts.region]       - the region the pool was asked to exit through
  * @param {object}   [opts.captcha]      - Captcha config
  * @param {number}   [opts.tabId]        - Active tab for Gate 7
- * @param {boolean}  [opts.confirmed]    - User explicitly confirmed row count
- * @param {number}   [opts.rowCount]     - Total rows to process
  * @returns {Promise<EthicsResult>}
  */
 export async function runEthicsGates(opts = {}) {
@@ -488,8 +445,6 @@ export async function runEthicsGates(opts = {}) {
     region = null,
     captcha = {},
     tabId = null,
-    confirmed = false,
-    rowCount = 0,
     bypassRobots = false,
   } = opts;
 
@@ -528,22 +483,26 @@ export async function runEthicsGates(opts = {}) {
   const w6 = _gate6_crossOrigin(steps, targetOrigin);
   if (w6) warnings.push(w6);
 
-  // FORM_FILL hard constraints
-  const formSteps = _flattenSteps(steps).filter((s) => s.type === "FORM_FILL");
-  for (const step of formSteps) {
-    try {
-      _checkFormFillHardConstraints(step.config ?? {}, rowCount, confirmed);
-    } catch (err) {
-      if (err instanceof EthicsBlock) {
-        logger.error(MODULE, "form-fill-block", {
-          code: err.code,
-          message: err.message,
-        });
-        return { blocked: true, blocker: err, warnings };
-      }
-      throw err;
-    }
-  }
+  // The FORM_FILL hard constraints used to sit here, and they were the same
+  // defect as gate 2 above, surviving the fix that was looking straight at it.
+  //
+  // They filtered `s.type === "FORM_FILL"`. The registry has no such type —
+  // the step is FILL — so four hard blocks (DelayFloor, SubmitCapExceeded,
+  // PasswordField, HiddenField) matched nothing on every pipeline ever run,
+  // while ethics-engine's own docblock and SECURITY.md both listed "password
+  // fields in form filling" as something this engine refuses.
+  //
+  // The one that mattered is now enforced where it fires: `_typeInto` in
+  // content/injector.js, the single function both fill modes go through,
+  // refuses a password field outright. That is a better home for it than a
+  // preflight gate — preflight reads the config a user typed, and the page
+  // decides what an element actually is.
+  //
+  // Of the other three: the delay floor is the rate limiter's job and it does
+  // it per host for every acting step; the row cap and the hidden-field check
+  // described a bulk row-by-row submitter that no registry step exposes.
+  // Deleting a gate that cannot fire is not a loss of protection — it is the
+  // removal of a claim that was never true.
 
   // Gate 7: Overlay readiness (SOFT — needs tabId)
   if (tabId) {

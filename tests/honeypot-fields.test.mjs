@@ -208,3 +208,93 @@ test("the run log names the field and why it was skipped", async () => {
   assert.match(line, /trap/i);
   await endRun(runId);
 });
+
+// ── Passwords: the block that was documented and never reachable ────────────
+//
+// The ethics engine has listed "password fields in form filling" as a hard
+// block since the audit. Reading the code rather than the docblock: that block
+// filters the pipeline for steps of type FORM_FILL, and the registry has no
+// such type — the step is FILL. It matched nothing on every pipeline ever run,
+// and the comment three lines above it in ethics-engine.js says so about a
+// *different* gate, which is how it survived a fix that was looking straight
+// at it.
+//
+// The in-page guard that should have caught it (form-filler.js:333) is
+// reachable only through an VQ_FORM_FILL_ROW message that nothing dispatches.
+// So both copies of the protection were dead, and the path a user actually
+// builds would type a credential into a login form and click submit, while
+// SECURITY.md and the ethics engine both said it could not.
+//
+// A honeypot check does not cover this: a password field is visible, focusable
+// and real. It is the one field where doing the obvious thing is the harm.
+
+test("FILL refuses a password field outright", async () => {
+  const page = await loadInjector(
+    `<form><input id="u" name="user"><input id="p" type="password" name="pass"></form>`,
+  );
+  await assert.rejects(
+    () =>
+      page.api._stepFill({
+        mode: "single",
+        selector: "#p",
+        text: "hunter2",
+        delayMs: 0,
+      }),
+    /password field/i,
+    "FILL typed into a password field",
+  );
+  assert.equal(
+    page.document.getElementById("p").value,
+    "",
+    "the credential reached the field before the refusal",
+  );
+  page.close();
+});
+
+test("a password field inside a multi-field FILL stops the whole step", async () => {
+  // Not skipped like a honeypot. A honeypot is a field the form is complete
+  // without; a login form without its password is a step that was going to
+  // submit a credential and should not continue to the submit click.
+  const page = await loadInjector(
+    `<form>
+       <input id="u" name="user">
+       <input id="p" type="password" name="pass">
+       <button id="go">Sign in</button>
+     </form>`,
+  );
+  let clicked = false;
+  page.document.getElementById("go").addEventListener("click", () => {
+    clicked = true;
+  });
+
+  await assert.rejects(
+    () =>
+      page.api._stepFill({
+        mode: "multi",
+        delayMs: 0,
+        submitSelector: "#go",
+        fields: [
+          { selector: "#u", value: "ada" },
+          { selector: "#p", value: "hunter2" },
+        ],
+      }),
+    /password field/i,
+  );
+  assert.equal(page.document.getElementById("p").value, "");
+  assert.equal(clicked, false, "the form was submitted anyway");
+  page.close();
+});
+
+test("an ordinary text field is unaffected", async () => {
+  // The other half: a refusal that also blocked normal fills would be found
+  // immediately, which is exactly why it is worth asserting.
+  const page = await loadInjector(`<form><input id="u" name="user"></form>`);
+  await page.api._stepFill({
+    mode: "single",
+    selector: "#u",
+    text: "ada",
+    delayMs: 0,
+  });
+  assert.equal(page.document.getElementById("u").value, "ada");
+  page.close();
+});
