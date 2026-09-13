@@ -73,6 +73,45 @@ test("url makes a relative link absolute", () => {
   );
 });
 
+test("url does not manufacture a link out of ordinary text", () => {
+  // The case above passes no base, which is why this went unnoticed: without
+  // one, `new URL()` throws on prose and the value falls through untouched.
+  // With a base it does not throw. It percent-encodes the spaces and returns a
+  // well-formed address that goes nowhere, and a column of those is exactly
+  // the "wrong answer that looks right" this module opens by ruling out.
+  const base = "https://shop.test/catalog/";
+  for (const v of [
+    "Out of stock",
+    "1,234 reviews",
+    "Free shipping on orders over $50",
+  ]) {
+    assert.equal(at(v, "url", { base }), v, `${v} was turned into a link`);
+  }
+});
+
+test("url still resolves every relative form markup actually uses", () => {
+  // The other half of the guard: refusing anything that merely looks unusual
+  // would cost real links, which is the more expensive mistake.
+  const base = "https://shop.test/catalog/";
+  assert.equal(at("p/123", "url", { base }), "https://shop.test/catalog/p/123");
+  assert.equal(at("./x", "url", { base }), "https://shop.test/catalog/x");
+  assert.equal(at("?q=1", "url", { base }), "https://shop.test/catalog/?q=1");
+  assert.equal(at("#frag", "url", { base }), "https://shop.test/catalog/#frag");
+  assert.equal(
+    at("//cdn.test/a.png", "url", { base }),
+    "https://cdn.test/a.png",
+  );
+});
+
+test("url trims before it decides, so padded markup still resolves", () => {
+  // Whitespace *around* a link is what markup leaves behind; whitespace
+  // *inside* it is what prose has. Only the second one disqualifies a value.
+  assert.equal(
+    at("  /p/123\n ", "url", { base: "https://shop.test/" }),
+    "https://shop.test/p/123",
+  );
+});
+
 test("url leaves a value alone when it cannot be resolved", () => {
   assert.equal(at("not a url", "url", {}), "not a url");
   assert.equal(at("", "url", { base: "https://shop.test/" }), "");

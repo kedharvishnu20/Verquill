@@ -73,7 +73,7 @@ test("the worker injects on demand, and only once per tab", () => {
   // after the first injection never got the script at all (K-07).
   assert.match(
     fn,
-    /func: \(\) => Boolean\(globalThis\.__fsInjected\)/,
+    /func: \(\) => Boolean\(globalThis\.__vqInjected\)/,
     "ask before injecting",
   );
   assert.match(fn, /allFrames: true/, "the probe must reach every frame");

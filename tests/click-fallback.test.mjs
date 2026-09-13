@@ -33,7 +33,7 @@ test("a matching selector clicks the intended element", async () => {
   const r = await h.api._executeStep({
     type: "CLICK",
     config: { selector: ".open" },
-    __fsContext: loopCtx(1),
+    __vqContext: loopCtx(1),
   });
 
   assert.equal(r.clicked, 1);
@@ -55,7 +55,7 @@ test("a missing selector inside a loop is an error, not a click on the row", asy
       h.api._executeStep({
         type: "CLICK",
         config: { selector: ".typo-does-not-exist" },
-        __fsContext: loopCtx(0),
+        __vqContext: loopCtx(0),
       }),
     /Click target not found/,
     "this used to resolve successfully, having clicked the wrong element",
@@ -72,7 +72,7 @@ test("the error tells you the fallback exists", async () => {
       h.api._executeStep({
         type: "CLICK",
         config: { selector: ".nope" },
-        __fsContext: loopCtx(0),
+        __vqContext: loopCtx(0),
       }),
     /Fall back to the loop item/,
   );
@@ -91,7 +91,7 @@ test("opting in restores the fallback", async () => {
   const r = await h.api._executeStep({
     type: "CLICK",
     config: { selector: ".nope", fallbackToLoopItem: true },
-    __fsContext: loopCtx(1),
+    __vqContext: loopCtx(1),
   });
 
   assert.equal(r.usedRootFallback, true, "and it reports that it did so");
@@ -113,7 +113,7 @@ test("an empty selector still targets the loop item", async () => {
   const r = await h.api._executeStep({
     type: "CLICK",
     config: { selector: "" },
-    __fsContext: loopCtx(0),
+    __vqContext: loopCtx(0),
   });
 
   assert.equal(

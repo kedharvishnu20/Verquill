@@ -45,7 +45,7 @@ test("injecting twice does not double-register the page's listener", () => {
   // one loses — which is how A-08 broke the ethics gate.
   assert.match(
     injector,
-    /__fsInjected/,
+    /__vqInjected/,
     "injector.js has no guard against being evaluated twice",
   );
 });

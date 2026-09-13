@@ -22,13 +22,13 @@
  *
  *   Design decisions:
  *     - Runs in ISOLATED world as a content script (no ES module imports).
- *     - Exposes window.__fsSmartExtract so injector.js can call it
+ *     - Exposes window.__vqSmartExtract so injector.js can call it
  *       without needing a module boundary.
  *     - Pure DOM reads: no network calls, no side effects.
  *     - All querySelector calls are wrapped in try/catch to prevent
  *       malformed page HTML from crashing the extractor.
  *
- * @exports window.__fsSmartExtract  async (config?) => ExtractionResult
+ * @exports window.__vqSmartExtract  async (config?) => ExtractionResult
  */
 
 "use strict";
@@ -1227,6 +1227,6 @@ function vqSmartExtract(config = {}) {
 }
 
 // Expose to window so injector.js can call it without module boundary
-window.__fsSmartExtract = vqSmartExtract;
+window.__vqSmartExtract = vqSmartExtract;
 
 // === END smart-extractor.js ===

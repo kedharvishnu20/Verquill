@@ -773,7 +773,7 @@
   }
 
   // The isolated world is shared with injector.js, which dispatches to this.
-  globalThis.__fsDetectStructure = detectStructure;
+  globalThis.__vqDetectStructure = detectStructure;
 })();
 
 // === END structure-detector.js ===

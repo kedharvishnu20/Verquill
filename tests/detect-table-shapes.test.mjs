@@ -21,7 +21,7 @@ function detect(html) {
     runScripts: "outside-only",
   });
   vm.runInContext(source, dom.getInternalVMContext(), { filename: "sd.js" });
-  const out = dom.window.__fsDetectStructure();
+  const out = dom.window.__vqDetectStructure();
   dom.window.close();
   return out;
 }

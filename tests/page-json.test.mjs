@@ -36,7 +36,7 @@ function read(html, config = {}) {
   vm.runInContext(SOURCE, dom.getInternalVMContext(), {
     filename: "page-json.js",
   });
-  const out = JSON.parse(JSON.stringify(dom.window.__fsPageJson(config)));
+  const out = JSON.parse(JSON.stringify(dom.window.__vqPageJson(config)));
   dom.window.close();
   return out;
 }

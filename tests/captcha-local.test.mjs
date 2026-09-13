@@ -125,7 +125,7 @@ function check(html, { visible = [], title = "Shop" } = {}) {
   vm.runInContext(checkSource, dom.getInternalVMContext(), {
     filename: "captcha-check.js",
   });
-  const out = window.__fsCheckCaptcha();
+  const out = window.__vqCheckCaptcha();
   window.close();
   return out;
 }
@@ -475,7 +475,7 @@ async function runWithGateway(found, grab, said) {
   const { runId, runState } = startRun({ captchaAuthorized: true });
   onExecuteScript((details) => {
     if (!details.func) return [];
-    return String(details.func).includes("__fsGrabCaptchaImage")
+    return String(details.func).includes("__vqGrabCaptchaImage")
       ? [{ result: grab }]
       : [{ result: found }];
   });

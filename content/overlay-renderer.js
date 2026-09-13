@@ -18,11 +18,8 @@
 import {
   hexToRGBA,
   badgeTextColor,
-  ZONE_PALETTE,
-  COLOR_CAPTCHA,
   COLOR_BLOCKED,
   COLOR_SUCCESS,
-  COLOR_WARNING,
   COLOR_ERROR,
 } from "../utils/color-utils.js";
 
@@ -36,6 +33,11 @@ const OVERLAY_Z_INDEX = 2147483647;
 const OVERLAY_PULSE_DURATION = "600ms";
 const OVERLAY_TRANSITION = "180ms ease";
 const OVERLAY_LABEL_MAX_CHARS = 24;
+
+/** The selector picker's teal. Its own colour rather than a palette slot: the
+ * picker is not a step, and it has to stay recognisable when it outlines an
+ * element a step is already covering. */
+const COLOR_PICKER = "#06B6D4";
 
 // Crosshatch SVG for 'blocked' mode (data URI, no remote fetch)
 const CROSSHATCH_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M0 8L8 0M-1 1L1-1M7 9L9 7' stroke='%236B7280' stroke-width='1.5'/%3E%3C/svg%3E")`;
@@ -68,7 +70,7 @@ const ANIM_CSS = `
  * @param {ShadowRoot} shadowRoot
  */
 export function injectAnimationSheet(shadowRoot) {
-  if (shadowRoot._fsAnimInjected) return;
+  if (shadowRoot._vqAnimInjected) return;
   try {
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(ANIM_CSS);
@@ -76,22 +78,26 @@ export function injectAnimationSheet(shadowRoot) {
       ...(shadowRoot.adoptedStyleSheets ?? []),
       sheet,
     ];
-    shadowRoot._fsAnimInjected = true;
+    shadowRoot._vqAnimInjected = true;
   } catch {
     // Fallback for browsers without adoptedStyleSheets
     const style = document.createElement("style");
     style.textContent = ANIM_CSS;
     shadowRoot.appendChild(style);
-    shadowRoot._fsAnimInjected = true;
+    shadowRoot._vqAnimInjected = true;
   }
 }
 
 // ── Truncate label ────────────────────────────────────────────────────────────
-function _truncLabel(label) {
+/**
+ * Trim a label to fit the badge.
+ * @param {string} label
+ * @param {number} [reserved] characters the caller will add around it
+ */
+function _truncLabel(label, reserved = 0) {
   if (!label) return "";
-  return label.length > OVERLAY_LABEL_MAX_CHARS
-    ? label.slice(0, OVERLAY_LABEL_MAX_CHARS - 1) + "…"
-    : label;
+  const budget = Math.max(4, OVERLAY_LABEL_MAX_CHARS - reserved);
+  return label.length > budget ? label.slice(0, budget - 1) + "…" : label;
 }
 
 // ── Badge element ─────────────────────────────────────────────────────────────
@@ -115,7 +121,10 @@ function _createBadge(text, bgColor) {
     `user-select:none`,
     `will-change:transform`,
   ].join(";");
-  badge.textContent = _truncLabel(text);
+  // Already the right length: _modeBadgeText trims the part that can be long
+  // and leaves its own prefix and suffix alone. Trimming again here is what
+  // used to eat the "×5" off a multi-match badge.
+  badge.textContent = text;
   badge.dataset.vqBadge = "1";
   return badge;
 }
@@ -146,8 +155,17 @@ function _applyOverlayBase(div, rect, color, mode) {
 }
 
 function _applyModeStyle(div, color, mode) {
-  // Remove any existing animation
+  // Every property any branch below sets, cleared first. Only `animation` used
+  // to be, and each mode sets a different subset, so what a branch did not set
+  // it inherited from whatever the overlay was before: a blocked step that
+  // then succeeded kept its 0.8 opacity, and an element the picker had
+  // outlined kept the teal ring underneath its live border for the rest of the
+  // run. Resetting here means a mode is what it says it is regardless of the
+  // mode before it.
   div.style.animation = "none";
+  div.style.opacity = "";
+  div.style.boxShadow = "";
+  div.style.backgroundColor = "";
 
   switch (mode) {
     case "preview":
@@ -181,7 +199,7 @@ function _applyModeStyle(div, color, mode) {
 
     case "selector":
       div.style.background = "transparent";
-      div.style.border = `2px solid #06B6D4`; // teal
+      div.style.border = `2px solid ${COLOR_PICKER}`;
       div.style.boxShadow = `0 0 0 1px rgba(6,182,212,0.3)`;
       break;
 
@@ -192,21 +210,32 @@ function _applyModeStyle(div, color, mode) {
 }
 
 // ── Badge label for mode ──────────────────────────────────────────────────────
+/**
+ * The badge's text for a mode.
+ *
+ * Each branch trims the one part that can be arbitrarily long — the label, or
+ * the error message — against a budget that already accounts for what the
+ * branch puts around it. The caller must not trim the result again: the
+ * prefixes and the match count are the parts a second pass would cut, and they
+ * are the parts the badge exists to show.
+ */
 function _modeBadgeText(mode, label, message, isMulti, matchCount) {
   switch (mode) {
     case "completed":
-      return `✓ ${_truncLabel(label)}`;
+      return `✓ ${_truncLabel(label, 2)}`;
     case "error":
-      return `❌ ${_truncLabel(message ?? "Error")}`;
+      return `❌ ${_truncLabel(message ?? "Error", 2)}`;
     case "blocked":
       return `⛔ Blocked`;
     case "live":
-      return `⟳ ${_truncLabel(label)}`;
+      return `⟳ ${_truncLabel(label, 2)}`;
     case "selector":
-      return `🖱 ${_truncLabel(label)}`;
+      return `🖱 ${_truncLabel(label, 2)}`;
     default:
-      if (isMulti && matchCount > 1)
-        return `${_truncLabel(label)} · ×${matchCount}`;
+      if (isMulti && matchCount > 1) {
+        const suffix = ` · ×${matchCount}`;
+        return `${_truncLabel(label, suffix.length)}${suffix}`;
+      }
       return _truncLabel(label);
   }
 }
@@ -222,7 +251,7 @@ function _modeBadgeColor(mode, color) {
     case "live":
       return color;
     case "selector":
-      return "#06B6D4";
+      return COLOR_PICKER;
     default:
       return color;
   }
@@ -297,7 +326,7 @@ export function updateOverlayElement(
       matchCount,
     );
     const badgeColor = _modeBadgeColor(mode, color);
-    badge.textContent = _truncLabel(badgeText);
+    badge.textContent = badgeText;
     badge.style.background = badgeColor;
     badge.style.color = badgeTextColor(badgeColor);
   }
@@ -355,7 +384,7 @@ export function createPickerOverlay(shadowRoot, rect, selectorText) {
   return createOverlayElement(
     shadowRoot,
     rect,
-    "#06B6D4",
+    COLOR_PICKER,
     "selector",
     selectorText,
     false,

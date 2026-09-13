@@ -269,7 +269,7 @@ const SNIFFER_FILE = "content/page-sniffer.js";
  * before the traffic it cares about, the sniffer captured nothing in practice.
  *
  * So the relay is registered with the same matches and the same lifetime as the
- * hook it serves. injector.js guards itself with `__fsInjected`, so this and
+ * hook it serves. injector.js guards itself with `__vqInjected`, so this and
  * the on-demand injection cannot install two listeners.
  */
 const SNIFFER_RELAY_ID = "vq_sniffer_relay";
@@ -754,7 +754,7 @@ async function _ensureInjected(tabId) {
   try {
     probe = await chrome.scripting.executeScript({
       target: { tabId, allFrames: true },
-      func: () => Boolean(globalThis.__fsInjected),
+      func: () => Boolean(globalThis.__vqInjected),
     });
   } catch (err) {
     // chrome:// pages, the Web Store, and PDF viewers refuse injection. Saying
@@ -2816,7 +2816,7 @@ function _downloadableScheme(url) {
  * reports what it saved, what it refused and why, and fails outright when it
  * found URLs and saved none of them.
  *
- * @param {object} step  - already template-resolved; `__fsRawConfig` still has
+ * @param {object} step  - already template-resolved; `__vqRawConfig` still has
  *                         the filename template, which is resolved per file
  * @param {number} tabId
  * @param {?string} runId
@@ -3276,7 +3276,7 @@ async function _executeSession(step, tabId, runId) {
 
 async function _executeDownloadFile(step, tabId, runId, ctx = {}) {
   const config = step.config || {};
-  const authored = step.__fsRawConfig || config;
+  const authored = step.__vqRawConfig || config;
   const runState = _runStates.get(runId);
   const literal = String(config.url || "").trim();
 
@@ -3305,7 +3305,7 @@ async function _executeDownloadFile(step, tabId, runId, ctx = {}) {
         inFrame: config.inFrame,
         frameUrl: config.frameUrl,
       },
-      __fsContext: step.__fsContext || ctx,
+      __vqContext: step.__vqContext || ctx,
     });
     if (!resp?.ok) {
       throw new Error(resp?.error || "DOWNLOAD_FILE could not read the page");
@@ -3490,16 +3490,16 @@ function _resolveConfig(step, ctx) {
   // template inside FILL.fields[].value or an EXTRACT field passed through
   // literally and got typed into the page as "{{item.href}}" (B-11).
   // EXTRACT selectors survived by accident, because injector.js re-renders them
-  // from __fsContext; resolving here first is a no-op for those.
+  // from __vqContext; resolving here first is a no-op for those.
   return {
     ...step,
     config: _resolveAny(step.config || {}, ctx),
-    __fsContext: ctx,
+    __vqContext: ctx,
     // The step as its author wrote it. DOWNLOAD_FILE needs it: its filename
     // template is resolved once per file, against a context that does not
     // exist yet here, and a pass through _resolveStr now would blank
     // {{file.name}} before the first file is known.
-    __fsRawConfig: step.config,
+    __vqRawConfig: step.config,
   };
 }
 
@@ -5266,7 +5266,7 @@ async function _checkCaptcha(tabId) {
     });
     const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId },
-      func: () => globalThis.__fsCheckCaptcha?.() ?? null,
+      func: () => globalThis.__vqCheckCaptcha?.() ?? null,
     });
     if (!result) return null;
     // The page reports what it saw; the tier is decided here, where the parser
@@ -5366,7 +5366,7 @@ async function _askGatewayForCaptcha(tabId, found, runId) {
   try {
     const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId },
-      func: () => globalThis.__fsGrabCaptchaImage?.() ?? null,
+      func: () => globalThis.__vqGrabCaptchaImage?.() ?? null,
     });
     grabbed = result;
   } catch {

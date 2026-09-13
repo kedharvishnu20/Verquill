@@ -399,8 +399,8 @@
 
   // The isolated world is shared with injector.js, the same way
   // structure-detector.js hands over its entry point.
-  globalThis.__fsCheckCaptcha = checkCaptcha;
-  globalThis.__fsGrabCaptchaImage = grabImage;
+  globalThis.__vqCheckCaptcha = checkCaptcha;
+  globalThis.__vqGrabCaptchaImage = grabImage;
 })();
 
 // === END captcha-check.js ===

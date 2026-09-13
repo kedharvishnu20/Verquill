@@ -129,10 +129,10 @@ function stubDragAndDrop(window) {
   Object.defineProperty(window.HTMLInputElement.prototype, "files", {
     configurable: true,
     get() {
-      return "_fsFiles" in this ? this._fsFiles : original?.get?.call(this);
+      return "_vqFiles" in this ? this._vqFiles : original?.get?.call(this);
     },
     set(value) {
-      Object.defineProperty(this, "_fsFiles", {
+      Object.defineProperty(this, "_vqFiles", {
         value,
         configurable: true,
         writable: true,
@@ -185,7 +185,7 @@ export async function loadInjector(html = "") {
   assert.ok(close !== -1, "injector.js is no longer wrapped in an IIFE");
   source =
     source.slice(0, close) +
-    `\n;globalThis.__fsTestApi = { ${EXPOSED.join(", ")} };\n` +
+    `\n;globalThis.__vqTestApi = { ${EXPOSED.join(", ")} };\n` +
     source.slice(close);
 
   const context = dom.getInternalVMContext();
@@ -194,7 +194,7 @@ export async function loadInjector(html = "") {
   return {
     window,
     document: window.document,
-    api: window.__fsTestApi,
+    api: window.__vqTestApi,
     close: () => window.close(),
   };
 }

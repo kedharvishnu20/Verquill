@@ -164,7 +164,7 @@ test("the selector is sent to the page with the loop's record in context", async
   assert.ok(sent, "the page was asked which URLs the selector matches");
   assert.equal(sent.payload.config.selector, "img");
   assert.equal(
-    sent.payload.__fsContext.loop.index0,
+    sent.payload.__vqContext.loop.index0,
     3,
     "so _queryScoped resolves it against the record the loop is on",
   );
@@ -316,7 +316,7 @@ test("the step stops at the limit it was given", async () => {
 const collect = (config, context = {}) => ({
   type: "DOWNLOAD_COLLECT",
   config,
-  __fsContext: context,
+  __vqContext: context,
 });
 
 test("the page reports absolute URLs from links and images alike", async () => {

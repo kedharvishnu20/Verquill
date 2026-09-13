@@ -262,7 +262,7 @@ test("every frame is checked, not just the top document", () => {
   assert.ok(fn.length > 0, "the _ensureInjected slice is wrong");
   assert.match(
     fn,
-    /target: \{ tabId, allFrames: true \},\s*\n\s*func: \(\) => Boolean\(globalThis\.__fsInjected\)/,
+    /target: \{ tabId, allFrames: true \},\s*\n\s*func: \(\) => Boolean\(globalThis\.__vqInjected\)/,
     "it does not probe the frames",
   );
   assert.ok(

@@ -8,8 +8,8 @@
  */
 
 (function () {
-  if (window.__fsSnifferReady) return;
-  window.__fsSnifferReady = true;
+  if (window.__vqSnifferReady) return;
+  window.__vqSnifferReady = true;
 
   // Extremely basic filter: only log JSON-looking content or basic API urls.
   // Avoids filling memory with massive JPGs or CSS.
@@ -107,17 +107,17 @@
   const originalXhrSend = XMLHttpRequest.prototype.send;
 
   XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-    this._fsMethod = method;
-    this._fsUrl = url;
+    this._vqMethod = method;
+    this._vqUrl = url;
     return originalXhrOpen.call(this, method, url, ...rest);
   };
 
   XMLHttpRequest.prototype.send = function (body) {
-    this._fsReqBody = typeof body === "string" ? body : "";
+    this._vqReqBody = typeof body === "string" ? body : "";
 
     this.addEventListener("load", function () {
       const ct = this.getResponseHeader("content-type") || "";
-      if (_shouldLog(this._fsUrl, ct)) {
+      if (_shouldLog(this._vqUrl, ct)) {
         let resBody = "";
         try {
           if (this.responseType === "" || this.responseType === "text") {
@@ -125,10 +125,10 @@
           }
         } catch {}
         _sendPayload(
-          this._fsMethod,
-          this._fsUrl,
+          this._vqMethod,
+          this._vqUrl,
           this.status,
-          this._fsReqBody,
+          this._vqReqBody,
           resBody,
           "xhr",
         );

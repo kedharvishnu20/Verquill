@@ -6,7 +6,7 @@
 // the page verbatim and got typed into the form as the literal text
 // "{{item.href}}". docs/JinjaTemplateGuide.md §3 says nested resolution works.
 // EXTRACT selectors survived by accident — injector.js re-renders those from
-// __fsContext — which is why this went unnoticed.
+// __vqContext — which is why this went unnoticed.
 //
 // B-22: LOOP max:0 means "every match" in elements mode, which the UI says and
 // the code did. In count and paginate mode the same 0 ran the body zero times

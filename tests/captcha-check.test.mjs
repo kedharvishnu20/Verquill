@@ -63,7 +63,7 @@ function check(html, { visible = [], title = "Shop" } = {}) {
   vm.runInContext(source, dom.getInternalVMContext(), {
     filename: "captcha-check.js",
   });
-  const out = window.__fsCheckCaptcha();
+  const out = window.__vqCheckCaptcha();
   window.close();
   return out;
 }

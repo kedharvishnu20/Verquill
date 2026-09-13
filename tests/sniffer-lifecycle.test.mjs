@@ -114,5 +114,5 @@ test("page-sniffer still guards against double-installation", async () => {
     new URL("../content/page-sniffer.js", import.meta.url),
     "utf8",
   );
-  assert.match(sniffer, /if \(window\.__fsSnifferReady\) return;/);
+  assert.match(sniffer, /if \(window\.__vqSnifferReady\) return;/);
 });

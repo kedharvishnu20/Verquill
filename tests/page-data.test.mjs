@@ -34,7 +34,7 @@ function read(html, config = {}) {
   vm.runInContext(source, dom.getInternalVMContext(), {
     filename: "page-data.js",
   });
-  const out = dom.window.__fsReadPageData(config);
+  const out = dom.window.__vqReadPageData(config);
   dom.window.close();
   return out;
 }

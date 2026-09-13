@@ -839,13 +839,13 @@ test("a scrape that comes back with personal data says so, once", async () => {
   // run. The check now happens where the rows are.
   const { tabId, page } = await onSite("/directory");
   await env.panel.evaluate(() => {
-    globalThis.__fsPii = [];
+    globalThis.__vqPii = [];
     chrome.runtime.onMessage.addListener((msg) => {
       if (
         msg?.type === "pipeline:log" &&
         /Ethics . PII/.test(msg.payload?.message ?? "")
       ) {
-        globalThis.__fsPii.push(msg.payload.message);
+        globalThis.__vqPii.push(msg.payload.message);
       }
     });
   });
@@ -876,7 +876,7 @@ test("a scrape that comes back with personal data says so, once", async () => {
   }
   await page.close();
 
-  const warnings = await env.panel.evaluate(() => globalThis.__fsPii ?? []);
+  const warnings = await env.panel.evaluate(() => globalThis.__vqPii ?? []);
   assert.equal(warnings.length, 1, "it should say so exactly once");
   assert.match(warnings[0], /Email/);
   assert.match(warnings[0], /mail/, "the column is what makes it actionable");
@@ -1154,10 +1154,10 @@ test("a selector the model proposed is checked in the page before it is offered"
 
     // Listen for the offer the worker broadcasts, from the panel's own page.
     await env.panel.evaluate(() => {
-      globalThis.__fsSelectorOffers = [];
+      globalThis.__vqSelectorOffers = [];
       chrome.runtime.onMessage.addListener((msg) => {
         if (msg?.type === "pipeline:selectors") {
-          globalThis.__fsSelectorOffers.push(msg.payload);
+          globalThis.__vqSelectorOffers.push(msg.payload);
         }
       });
     });
@@ -1176,7 +1176,7 @@ test("a selector the model proposed is checked in the page before it is offered"
     assert.equal(res.ok, true, JSON.stringify(res));
 
     const offers = await env.panel.evaluate(
-      () => globalThis.__fsSelectorOffers ?? [],
+      () => globalThis.__vqSelectorOffers ?? [],
     );
     assert.equal(offers.length, 1, "the panel was never offered the step");
     const offer = offers[0];
@@ -2072,7 +2072,7 @@ test("the picker describes a card's field relative to the card", async () => {
   // What the panel now asks for when the EXTRACT sits inside a loop.
   const rel = await page.evaluate(() => {
     const el = document.querySelectorAll(".card .title")[1];
-    return window.__fsTestScoped ? null : el.className;
+    return window.__vqTestScoped ? null : el.className;
   });
   void rel;
 

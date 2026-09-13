@@ -191,7 +191,7 @@ test("a document that is itself an API response is reported", () => {
   );
   assert.match(fn, /document\.contentType/);
   assert.match(fn, /type: "network:sniff"/);
-  assert.match(fn, /__fsDataDocReported/, "it would report on every call");
+  assert.match(fn, /__vqDataDocReported/, "it would report on every call");
   assert.match(
     fn,
     /querySelector\("pre"\)/,
@@ -264,7 +264,7 @@ test("the guard runs before anything it has to protect", () => {
   // A guard placed after the declarations is decorative: the collision happens
   // at instantiation, which is before the guard exists.
   const body = injector.slice(injector.indexOf('"use strict";'));
-  const guard = body.indexOf("globalThis.__fsInjected");
+  const guard = body.indexOf("globalThis.__vqInjected");
   const firstConst = body.indexOf("\nconst ");
   assert.ok(guard !== -1, "no re-entry guard at all");
   assert.ok(

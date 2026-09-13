@@ -198,7 +198,7 @@
   }
 
   // The isolated world is shared with injector.js, which dispatches to this.
-  globalThis.__fsSessionStorage = sessionStorageStep;
+  globalThis.__vqSessionStorage = sessionStorageStep;
 })();
 
 // === END session-storage.js ===

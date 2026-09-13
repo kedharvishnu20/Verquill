@@ -87,10 +87,26 @@ function toNumber(text) {
  * Left alone when there is no base to resolve against, or when the value is
  * not a URL at all — a half-resolved link is worse than an untouched one,
  * because it looks usable.
+ *
+ * That second case needed a guard, because `new URL()` does not fail on prose.
+ * Against a base, `new URL("Out of stock", "https://shop.example/catalog/")`
+ * does not throw; it percent-encodes the spaces and hands back
+ * `https://shop.example/catalog/Out%20of%20stock`, an address that is
+ * well-formed, clickable, and nowhere. A column of those is worse than a
+ * column of untouched text in exactly the way this module's opening rule
+ * says: a wrong answer that looks right.
+ *
+ * Whitespace is the signal, because it is the one thing a relative URL cannot
+ * contain unencoded and the one thing a sentence always does. It leaves
+ * `p/123`, `./x`, `?q=1` and `#frag` alone, which are the relative forms that
+ * actually appear in markup. A single unspaced word that is not a link —
+ * `InStock` — still resolves; there is nothing in the string to tell it apart
+ * from a real path segment, and pretending otherwise would cost real links.
  */
 function toAbsoluteUrl(value, { base } = {}) {
   const text = String(value ?? "").trim();
   if (!text) return text;
+  if (/\s/.test(text)) return text;
   try {
     return new URL(text, base || undefined).href;
   } catch {
@@ -134,13 +150,16 @@ function isCatastrophicPattern(pattern) {
 /**
  * Pull a substring out with a pattern.
  *
- * `group` picks which capture group: 0 is always the whole match, and any
- * other number is that group or `null` if the pattern does not have it —
- * asking for group 2 on a pattern with one group is a real mistake, and
- * silently handing back group 1 (or the whole match) instead would hide it.
- * Left unset, it defaults to group 1, falling back to the whole match only
- * when the pattern has no groups at all, so a plain pattern with no
- * parentheses "just works" the way the field's placeholder text implies.
+ * `group` picks which capture group. 0 is always the whole match. A group of
+ * 2 or more is that group or `null` if the pattern does not have it — asking
+ * for group 2 on a pattern with one group is a real mistake, and silently
+ * handing back group 1 instead would hide it.
+ *
+ * Group 1 is the exception, and is the same whether it is asked for or left
+ * unset: on a pattern with no parentheses at all it gives the whole match, so
+ * a plain pattern "just works" the way the field's placeholder text implies.
+ * There is no mistake to hide there — a pattern with no groups and a request
+ * for its first group can only have meant the match.
  *
  * No match, no pattern, a pattern `RegExp` will not accept, or one shaped for
  * catastrophic backtracking: all of these come back `null`, the same as
@@ -248,20 +267,6 @@ export const TRANSFORMS = Object.freeze({
 });
 
 /**
- * Is this something RegExp will accept, and not a shape known to hang the
- * engine on the right input?
- *
- * Used by the panel to reject a pattern as it is typed, by the `regex`
- * transform itself before it ever runs one, and by both script emitters to
- * refuse a field rather than repair it — a repaired pattern gives a script
- * that runs and extracts something other than what the pipeline extracts,
- * which is worse than one that stops and says why.
- *
- * @param {string} pattern
- * @param {string} [flags]
- * @returns {boolean}
- */
-/**
  * The flags this tool is willing to run.
  *
  * A pipeline and the two scripts it generates must extract the same values, so
@@ -291,6 +296,20 @@ export function normalizeRegexGroup(group) {
   return Number.isInteger(n) && n >= 0 && n <= 20 ? n : null;
 }
 
+/**
+ * Is this something RegExp will accept, and not a shape known to hang the
+ * engine on the right input?
+ *
+ * Used by the panel to reject a pattern as it is typed, by the `regex`
+ * transform itself before it ever runs one, and by both script emitters to
+ * refuse a field rather than repair it — a repaired pattern gives a script
+ * that runs and extracts something other than what the pipeline extracts,
+ * which is worse than one that stops and says why.
+ *
+ * @param {string} pattern
+ * @param {string} [flags]
+ * @returns {boolean}
+ */
 export function isValidRegex(pattern, flags = "") {
   const str = String(pattern ?? "");
   if (isCatastrophicPattern(str)) return false;

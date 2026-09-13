@@ -53,7 +53,7 @@ function detect(html) {
   vm.runInContext(source, dom.getInternalVMContext(), {
     filename: "structure-detector.js",
   });
-  const out = dom.window.__fsDetectStructure();
+  const out = dom.window.__vqDetectStructure();
   dom.window.close();
   return out;
 }

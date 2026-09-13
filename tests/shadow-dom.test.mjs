@@ -273,7 +273,7 @@ function detectComponents({ nested = true } = {}) {
   vm.runInContext(detectorSrc, dom.getInternalVMContext(), {
     filename: "structure-detector.js",
   });
-  const out = dom.window.__fsDetectStructure();
+  const out = dom.window.__vqDetectStructure();
   dom.window.close();
   return out;
 }
@@ -327,7 +327,7 @@ test("an ordinary table is detected exactly as before", () => {
   vm.runInContext(detectorSrc, dom.getInternalVMContext(), {
     filename: "structure-detector.js",
   });
-  const table = dom.window.__fsDetectStructure().candidates[0];
+  const table = dom.window.__vqDetectStructure().candidates[0];
   assert.equal(table.selector, "tr");
   assert.equal(table.count, 3);
   assert.deepEqual(

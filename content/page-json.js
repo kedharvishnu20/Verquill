@@ -255,7 +255,7 @@
   }
 
   // The isolated world is shared with injector.js, which dispatches to this.
-  globalThis.__fsPageJson = pageJson;
+  globalThis.__vqPageJson = pageJson;
 })();
 
 // === END page-json.js ===

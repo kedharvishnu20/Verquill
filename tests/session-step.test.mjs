@@ -145,7 +145,7 @@ test("dump reads both storage areas and the cookies the page can see", () => {
     w.localStorage.setItem("token", "abc");
     w.sessionStorage.setItem("cart", "3");
     w.document.cookie = "visible=yes";
-    return w.__fsSessionStorage({ mode: "dump" });
+    return w.__vqSessionStorage({ mode: "dump" });
   });
   assert.equal(out.localStorage.token, "abc");
   assert.equal(out.sessionStorage.cart, "3");
@@ -162,7 +162,7 @@ test("dump reads both storage areas and the cookies the page can see", () => {
 
 test("restore writes storage back and reports how much stuck", () => {
   const out = inPage((w) => {
-    const res = w.__fsSessionStorage({
+    const res = w.__vqSessionStorage({
       mode: "restore",
       data: { localStorage: { token: "abc" }, sessionStorage: { cart: "3" } },
     });
@@ -176,7 +176,7 @@ test("restore writes storage back and reports how much stuck", () => {
 
 test("restore skips HttpOnly cookies rather than pretending to write them", () => {
   const out = inPage((w) =>
-    w.__fsSessionStorage({
+    w.__vqSessionStorage({
       mode: "restore",
       includeStorage: false,
       data: {
@@ -196,7 +196,7 @@ test("a value too large to be a session token is left behind, with a warning", (
   const out = inPage((w) => {
     w.localStorage.setItem("cache", "x".repeat(200_000));
     w.localStorage.setItem("token", "abc");
-    return w.__fsSessionStorage({ mode: "dump", includeCookies: false });
+    return w.__vqSessionStorage({ mode: "dump", includeCookies: false });
   });
   assert.equal(out.localStorage.token, "abc");
   assert.ok(!("cache" in out.localStorage));

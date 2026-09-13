@@ -43,8 +43,8 @@
  * one loses, which is how A-08 silently disabled the ethics gate.
  */
 (() => {
-  if (globalThis.__fsInjected) return;
-  globalThis.__fsInjected = true;
+  if (globalThis.__vqInjected) return;
+  globalThis.__vqInjected = true;
 
   const VQ_ORIGIN = chrome.runtime.getURL("").replace(/\/$/, "");
 
@@ -429,7 +429,7 @@
    * record anything on its own.
    */
   function _reportDataDocument() {
-    if (globalThis.__fsDataDocReported) return;
+    if (globalThis.__vqDataDocReported) return;
     const type = String(document.contentType || "");
     if (!_DATA_DOC_TYPE.test(type)) return;
 
@@ -441,7 +441,7 @@
       document.body?.innerText ??
       "";
     if (!body.trim()) return;
-    globalThis.__fsDataDocReported = true;
+    globalThis.__vqDataDocReported = true;
 
     let status = 0;
     try {
@@ -503,7 +503,7 @@
     "VQ_PROBE_SELECTORS",
   ]);
 
-  // Registered once per document: the __fsInjected guard at the top of this file
+  // Registered once per document: the __vqInjected guard at the top of this file
   // is what makes that true, so a second injection never reaches this line.
   {
     chrome.runtime.onMessage.addListener((msg, sender, respond) => {
@@ -544,7 +544,7 @@
       // isolated world, so it hands its entry point over on a global. A classic
       // content script cannot import one.
       case "VQ_DETECT_STRUCTURE": {
-        const detect = globalThis.__fsDetectStructure;
+        const detect = globalThis.__vqDetectStructure;
         if (typeof detect !== "function") {
           throw new Error("Structure detector is not loaded in this page.");
         }
@@ -597,7 +597,7 @@
   // ── Step execution ────────────────────────────────────────────────────────────
   async function _executeStep(step) {
     const { type, config } = step;
-    const context = step.__fsContext || {};
+    const context = step.__vqContext || {};
     // WEBSITE, NAVIGATE, SCREENSHOT and LOOP are not here: the service worker
     // executes those itself and never forwards them. They used to have handlers
     // here that nothing could reach — _stepNavigate set location.href, which is
@@ -691,7 +691,7 @@
       }
 
       case "PAGE_JSON": {
-        const read = globalThis.__fsPageJson;
+        const read = globalThis.__vqPageJson;
         if (typeof read !== "function") {
           throw new Error("Page-to-JSON reader is not loaded in this page.");
         }
@@ -701,7 +701,7 @@
       case "PAGE_DATA": {
         // page-data.js is injected alongside this file and publishes the reader
         // on the shared isolated world, the same way structure-detector.js does.
-        const read = globalThis.__fsReadPageData;
+        const read = globalThis.__vqReadPageData;
         if (typeof read !== "function") {
           throw new Error("Page data reader is not loaded in this page.");
         }
@@ -710,7 +710,7 @@
       case "SESSION_STORAGE": {
         // session-storage.js is injected on demand and publishes the reader on
         // the shared isolated world, the same way page-data.js does.
-        const run = globalThis.__fsSessionStorage;
+        const run = globalThis.__vqSessionStorage;
         if (typeof run !== "function") {
           throw new Error("Session storage reader is not loaded in this page.");
         }
@@ -805,7 +805,7 @@
 
   /**
    * AUTO_EXTRACT step handler.
-   * Delegates to window.__fsSmartExtract which is exposed by smart-extractor.js.
+   * Delegates to window.__vqSmartExtract which is exposed by smart-extractor.js.
    * That function runs Layers 1 (structured data) and 2 (heuristic DOM) locally,
    * then returns the result including a `simplifiedDom` string if the SW should
    * escalate to the LLM layer.
@@ -814,15 +814,15 @@
    * @returns {Promise<object>} Extraction result
    */
   async function _stepAutoExtract(config = {}) {
-    // Guard: smart-extractor.js injects __fsSmartExtract onto window.
+    // Guard: smart-extractor.js injects __vqSmartExtract onto window.
     // If the script hasn't loaded yet (rare race on instant navigation), wait briefly.
     let retries = 0;
-    while (typeof window.__fsSmartExtract !== "function" && retries < 5) {
+    while (typeof window.__vqSmartExtract !== "function" && retries < 5) {
       await _sleep(200);
       retries++;
     }
 
-    if (typeof window.__fsSmartExtract !== "function") {
+    if (typeof window.__vqSmartExtract !== "function") {
       throw new Error(
         "AUTO_EXTRACT: smart-extractor.js not loaded — ensure it is registered " +
           "in manifest.json before injector.js.",
@@ -830,7 +830,7 @@
     }
 
     // Run synchronously — pure DOM reads, no awaits needed inside
-    const result = window.__fsSmartExtract({
+    const result = window.__vqSmartExtract({
       confidenceThreshold: config.confidenceThreshold ?? 70,
       // Already parsed by the worker: this file forwards it rather than
       // reading the raw config, so "what counts as a field name" has one

@@ -370,7 +370,7 @@ _Corrected while fixing:_ the entry also claimed `|| null` turned legitimately f
 
 ### B-11 · HIGH · Template variables are not resolved in nested config
 
-`_resolveConfig` (`service-worker.js`) maps only **top-level string** values of `step.config`. `_resolveAny` (which recurses) is used exclusively for API headers. So `{{item.href}}` inside `FILL.fields[].value` passes through literally. (`EXTRACT.fields[].selector` happens to survive because `injector.js` re-renders selectors from `__fsContext`, but that is incidental, not by design.) `docs/JinjaTemplateGuide.md` §3 implies nested resolution works.
+`_resolveConfig` (`service-worker.js`) maps only **top-level string** values of `step.config`. `_resolveAny` (which recurses) is used exclusively for API headers. So `{{item.href}}` inside `FILL.fields[].value` passes through literally. (`EXTRACT.fields[].selector` happens to survive because `injector.js` re-renders selectors from `__vqContext`, but that is incidental, not by design.) `docs/JinjaTemplateGuide.md` §3 implies nested resolution works.
 
 ### B-12 · HIGH · Script export always emits Python; the Node emitter is unreachable
 
@@ -1583,7 +1583,7 @@ A classic content script's top-level `const` becomes a lexical binding on the
 isolated world's global scope, and that binding is created when the script is
 _instantiated_, before a single statement runs. So the second evaluation threw
 before reaching anything, and took the whole content script with it. The
-`__fsInjected` guard could not help: it sat 260 lines below the first `const`,
+`__vqInjected` guard could not help: it sat 260 lines below the first `const`,
 and was never reachable in the case it was written for.
 
 `injector.js` is now wrapped in a function, so its bindings are local and a
@@ -2506,7 +2506,7 @@ values the page supplied. Two rules, and the order matters:
 Resolving it needed one change elsewhere. `_resolveConfig` runs over every step
 before dispatch, and `{{file.name}}` names something that does not exist until a
 file has been chosen — so the pass blanked it and every file would have landed
-under the same name. The step now carries `__fsRawConfig`, the config as its
+under the same name. The step now carries `__vqRawConfig`, the config as its
 author wrote it, and resolves the template once per file against `_resolveStr`.
 The same resolver, not a second one.
 

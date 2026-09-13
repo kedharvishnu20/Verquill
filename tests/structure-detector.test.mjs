@@ -29,7 +29,7 @@ function detectorFor(bodyHtml) {
   const context = dom.getInternalVMContext();
   vm.runInContext(SOURCE, context, { filename: "structure-detector.js" });
   return {
-    detect: () => dom.window.__fsDetectStructure(),
+    detect: () => dom.window.__vqDetectStructure(),
     window: dom.window,
     close: () => dom.window.close(),
   };
@@ -348,7 +348,7 @@ test("the content script answers the detect message", async () => {
     "utf8",
   );
   assert.match(injector, /"VQ_DETECT_STRUCTURE",/, "the type is owned");
-  assert.match(injector, /globalThis\.__fsDetectStructure/);
+  assert.match(injector, /globalThis\.__vqDetectStructure/);
   assert.match(
     injector,
     /Structure detector is not loaded in this page/,
