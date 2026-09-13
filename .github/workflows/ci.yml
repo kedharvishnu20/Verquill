@@ -49,7 +49,7 @@ jobs:
       # generated script is valid rather than merely well-shaped. Installed on
       # both platforms so those tests actually run rather than skipping —
       # a skip is honest, but a skip on every runner is no coverage at all.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
