@@ -43,6 +43,16 @@ function stripLocalFields(pipeline) {
   return copy;
 }
 
+/**
+ * Every key a Verquill build has ever written a GitHub token to in
+ * chrome.storage.local. Append-only — see the sweep in the settings effect.
+ *
+ * "fs_github_pat" is the pre-rename name. It is the one that was actually
+ * written to disk; "vq_github_pat" never was, and is listed so a future
+ * regression that reintroduces a local write is still cleaned up.
+ */
+const LEGACY_PAT_KEYS = ["fs_github_pat", "vq_github_pat"];
+
 export default function App() {
   const [route, setRoute] = useState("registry");
   const [pipelines, setPipelines] = useState([]);
@@ -103,7 +113,20 @@ export default function App() {
       // Anything left in local by a previous version is swept rather than
       // read. Moving where new tokens go would otherwise leave the old one on
       // disk indefinitely, which is most of the exposure this fix is about.
-      chrome.storage.local.remove("vq_github_pat");
+      //
+      // Both names, and that is the whole point. The project-wide rename
+      // rewrote this call to the new key — which local storage has never held,
+      // because by the time the key was renamed the token already lived in
+      // session. So the sweep started deleting a key that was never there and
+      // stopped deleting the one that was, and a token written to disk by any
+      // build before the rename has been sitting there unswept since.
+      //
+      // A rename that silently disarms a credential cleanup is worse than no
+      // cleanup, because the interface goes on implying the disk is clean.
+      // LEGACY_PAT_KEYS is therefore append-only: a key leaves this list when
+      // no install can still be carrying it, which is not a judgement to make
+      // casually.
+      chrome.storage.local.remove(LEGACY_PAT_KEYS);
     } else {
       setSettingsLoaded(true);
     }

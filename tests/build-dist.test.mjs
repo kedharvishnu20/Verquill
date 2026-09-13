@@ -103,7 +103,8 @@ test("nothing that only exists for development is in the package", () => {
     "mcp/", // a separate Node server, not part of the extension
     "docs/", // for contributors, not for a browser
     "scripts/", // including this build script itself
-    "site/", // the registry website; a separate deployment, not the extension
+    "site/src/", // the registry's sources; only its built output ships
+    "site/node_modules/", // React and Vite, which Chrome never loads
   ]) {
     const shipped = listing.filter((f) => f.startsWith(unwanted));
     assert.deepEqual(shipped, [], `${unwanted} was packaged`);
@@ -165,4 +166,87 @@ test("every permission is justified, by name", () => {
   }
   // The one a reviewer always asks about.
   assert.match(doc, /all_urls/);
+});
+
+// ── Files the code names at run time, which the manifest does not ────────────
+//
+// `site/dist` was excluded from the package on the reasoning that nothing in
+// the manifest named it, so it could only be a separate deployment. Nothing in
+// the manifest does name it. The side panel names it at run time:
+//
+//     chrome.tabs.create({ url: chrome.runtime.getURL("site/dist/index.html") })
+//
+// So the shipped extension had a Registry button that opened a
+// chrome-extension:// URL with nothing behind it. It worked when loaded
+// unpacked, because site/dist sits on disk there from a local build — which is
+// the shape of bug that reaches a store reviewer rather than a developer.
+//
+// The manifest is not the only thing that can reference a packaged file.
+
+test("every file the code opens by extension URL is in the package", () => {
+  const sources = [
+    "../sidepanel/pipeline-builder.js",
+    "../sidepanel/overlay-panel.js",
+  ];
+  const referenced = new Set();
+  for (const rel of sources) {
+    const src = readFileSync(new URL(rel, import.meta.url), "utf8");
+    for (const m of src.matchAll(/getURL\(\s*["'`]([^"'`]+)["'`]\s*\)/g)) {
+      referenced.add(m[1].replace(/^\//, ""));
+    }
+  }
+  assert.ok(
+    referenced.size > 0,
+    "no getURL call found; if the panel stopped using them, retire this test",
+  );
+  const missing = [...referenced].filter((p) => !listing.includes(p));
+  assert.deepEqual(
+    missing,
+    [],
+    "the code opens packaged paths that do not exist",
+  );
+});
+
+test("the registry ships built, not as sources", () => {
+  // The page Chrome loads, plus the assets it references relatively. Vite's
+  // base is "./" so these resolve under chrome-extension://<id>/site/dist/.
+  assert.ok(
+    listing.includes("site/dist/index.html"),
+    "the registry page is missing",
+  );
+  assert.ok(
+    listing.some((f) => /^site\/dist\/assets\/.*\.js$/.test(f)),
+    "the registry ships no script",
+  );
+});
+
+test("the registry fetches no font or stylesheet from a third party", () => {
+  // A-09 for the other surface. The panel bundles Inter and JetBrains Mono and
+  // a test has asserted that since the audit — but it only ever read the
+  // panel's markup, so the registry went on linking fonts.googleapis.com. Now
+  // that the registry is an extension page, that is the same defect on a page
+  // whose privacy policy says it talks to three kinds of place and lists them.
+  const html = readFileSync(
+    new URL("../site/dist/index.html", import.meta.url),
+    "utf8",
+  );
+  assert.ok(
+    !/<link[^>]+href=["']https?:/i.test(html),
+    "the registry links a remote stylesheet or font again",
+  );
+
+  const css = listing
+    .filter((f) => /^site\/dist\/assets\/.*\.css$/.test(f))
+    .map((f) => readFileSync(new URL(`../${f}`, import.meta.url), "utf8"))
+    .join("\n");
+  // url(http…) only — an xmlns on an inline SVG is a namespace, not a fetch.
+  assert.ok(
+    !/url\(\s*["']?https?:/i.test(css),
+    "the registry's stylesheet fetches something remote",
+  );
+  assert.match(
+    css,
+    /url\([^)]*inter-latin-var\.woff2\)/,
+    "Inter is not bundled",
+  );
 });

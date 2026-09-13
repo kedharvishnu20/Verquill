@@ -238,7 +238,14 @@ test("the repository URL still persists, because it is not a secret", () => {
 test("a token left in local by an older version is swept, not read", () => {
   // Changing where new tokens go would otherwise leave the old one on disk
   // indefinitely — which is most of the exposure this was about.
-  assert.match(app, /local\.remove\("vq_github_pat"\)/);
+  //
+  // This test used to assert the literal `local.remove("vq_github_pat")`, and
+  // in doing so it pinned the bug rather than the behaviour: it was written
+  // against the code instead of against the requirement, so when the rename
+  // pointed the sweep at a key that was never written to disk, the test went
+  // green on a sweep that deleted nothing. The requirement is that a sweep
+  // happens over the known key list — see the three tests below it.
+  assert.match(app, /local\.remove\(LEGACY_PAT_KEYS\)/);
 });
 
 test("no session storage means no storage, not a quiet fallback", () => {
@@ -249,5 +256,52 @@ test("no session storage means no storage, not a quiet fallback", () => {
   assert.ok(
     !/local\.set[\s\S]{0,60}vq_github_pat/.test(elseArm),
     "it falls back to writing the token to disk",
+  );
+});
+
+// ── The sweep the rename disarmed ────────────────────────────────────────────
+//
+// The token moved from chrome.storage.local to chrome.storage.session, and a
+// sweep was added to delete whatever an older build had already written to
+// disk. The project-wide rename then rewrote that call from "fs_github_pat" to
+// "vq_github_pat" — and local storage has never held the new name, because by
+// the time the key was renamed the token already lived in session.
+//
+// So the sweep began deleting a key that was never there and stopped deleting
+// the one that was. Every token written to disk by any build before the rename
+// has been sitting there unswept since, while the interface went on implying
+// otherwise. That is worse than having no sweep at all.
+
+test("the sweep covers the key that was actually written to disk", () => {
+  // "fs_github_pat" is the pre-rename name and the one at risk. A test that
+  // only checked for a remove() call would have passed throughout the bug.
+  const list = app.match(/const LEGACY_PAT_KEYS = \[([^\]]*)\]/)?.[1];
+  assert.ok(
+    list,
+    "LEGACY_PAT_KEYS is gone; the sweep has no list to work from",
+  );
+  assert.match(list, /"fs_github_pat"/, "the pre-rename key is not swept");
+  assert.match(list, /"vq_github_pat"/, "the current key is not swept");
+});
+
+test("the sweep is wired to that list, not to a single literal", () => {
+  // The failure mode this guards: someone renames keys again and updates the
+  // remove() call rather than the list, quietly dropping the old name.
+  assert.match(
+    app,
+    /local\.remove\(LEGACY_PAT_KEYS\)/,
+    "the sweep names a key directly again, so a rename can orphan the old one",
+  );
+});
+
+test("the token list is append-only, so a rename cannot shorten it", () => {
+  // Not enforceable by a regex alone, so this asserts the floor: every key the
+  // project has ever written must still be listed. Adding a name here when the
+  // storage key changes is the whole maintenance obligation.
+  const list = app.match(/const LEGACY_PAT_KEYS = \[([^\]]*)\]/)[1];
+  const keys = [...list.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(
+    keys.length >= 2,
+    `only ${keys.length} key(s) listed; both the pre- and post-rename names are required`,
   );
 });

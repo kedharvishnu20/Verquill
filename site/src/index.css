@@ -1,4 +1,34 @@
 /*
+ * The same two faces the panel bundles, served from this package rather than
+ * from Google.
+ *
+ * This page is opened as an extension page — the panel's registry button does
+ * chrome.runtime.getURL("site/dist/index.html") — so a <link> to
+ * fonts.googleapis.com here is the exact defect audit finding A-09 recorded
+ * against the panel: a request to a third party on every open, from a product
+ * whose privacy policy says it makes network requests to three kinds of place
+ * and lists all of them. The A-09 test only ever read the panel's markup, so
+ * this surface kept the leak.
+ *
+ * Declared here rather than in index.html so the check that no stylesheet is
+ * fetched can read one file and mean it.
+ */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/inter-latin-var.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-latin-var.woff2") format("woff2");
+}
+
+/*
        * The extension is designed like the front panel of a piece of lab
        * equipment. This is the parts catalogue that goes with it.
        *

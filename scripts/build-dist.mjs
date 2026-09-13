@@ -42,6 +42,8 @@ import {
 } from "node:fs";
 import { join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
@@ -61,15 +63,31 @@ const INCLUDE_DIRS = [
   "icons",
   "script-gen",
   "sidepanel",
+  "site/dist",
   "utils",
 ];
 
-// `site/dist` was briefly on that list. It is Vite's build output for the
-// registry website: gitignored, absent on a clean clone, and named by nothing
-// in the manifest — so packaging crashed with ENOENT, and on a machine where
-// it happened to exist it would have shipped an entire React app Chrome never
-// loads into the store package. The website is a separate deployment; the test
-// below that asserts nothing under `site/` is packaged is what caught it.
+// `site/dist` belongs in the package, and the reasoning that once removed it
+// was wrong in a specific way worth recording.
+//
+// It was excluded on the grounds that nothing in the manifest names it, so it
+// could only be a separate deployment. Nothing in the manifest does name it —
+// but the side panel does, at runtime:
+//
+//     chrome.tabs.create({ url: chrome.runtime.getURL("site/dist/index.html") })
+//
+// The manifest is not the only thing that can reference a packaged file, and
+// checking only the manifest is how a button in the shipped extension came to
+// open a chrome-extension:// URL that did not exist. It worked when loaded
+// unpacked, where site/dist sits on disk from a local build, which is exactly
+// the shape of bug that reaches a store review rather than a developer.
+//
+// It is also not optional: the registry reads chrome.storage for your local
+// pipelines and writes the one it loads back there. Served from anywhere but
+// the extension, `chrome` is undefined and half the page does nothing.
+//
+// `ensureSiteBuilt` below refuses to package a stale or missing build rather
+// than shipping whatever happens to be lying around.
 
 /** Loose files that belong in the package. */
 const INCLUDE_FILES = ["manifest.json", "LICENSE", "PRIVACY.md"];
@@ -223,6 +241,51 @@ const outDir = argOut === -1 ? join(ROOT, "dist") : process.argv[argOut + 1];
 mkdirSync(outDir, { recursive: true });
 
 const manifest = JSON.parse(readFileSync(join(ROOT, "manifest.json"), "utf8"));
+
+/**
+ * Build the registry site if its output is missing or older than its source.
+ *
+ * The package needs `site/dist`, but that directory is gitignored and absent
+ * on a clean clone, so packaging cannot simply assume it. Nor can it ship
+ * whatever happens to be lying around: a `dist` left over from an earlier
+ * commit is worse than none, because it packages cleanly and then serves a
+ * registry that disagrees with the extension beside it.
+ *
+ * So: rebuild when stale, and let a build failure stop the package rather than
+ * degrade it. `npm ci` is not run here — if the site's dependencies are not
+ * installed, that is a setup problem the error should say out loud rather than
+ * something a packaging script quietly fixes.
+ */
+function ensureSiteBuilt() {
+  const site = join(ROOT, "site");
+  const dist = join(site, "dist", "index.html");
+
+  const newestSource = ["src", "index.html", "vite.config.js", "public"]
+    .map((p) => join(site, p))
+    .filter(existsSync)
+    .flatMap((p) =>
+      statSync(p).isDirectory()
+        ? walk(posix.join("site", p.slice(site.length + 1))).map((f) =>
+            join(ROOT, f),
+          )
+        : [p],
+    )
+    .reduce((max, f) => Math.max(max, statSync(f).mtimeMs), 0);
+
+  if (existsSync(dist) && statSync(dist).mtimeMs >= newestSource) return;
+
+  process.stderr.write("site/dist is missing or stale — building it\n");
+  try {
+    execFileSync("npm", ["run", "build"], { cwd: site, stdio: "inherit" });
+  } catch {
+    throw new Error(
+      "the registry site failed to build, so the package would ship a " +
+        "registry button that opens nothing. Run `npm ci` in site/ and retry.",
+    );
+  }
+}
+
+ensureSiteBuilt();
 
 const files = new Set(INCLUDE_FILES);
 for (const dir of INCLUDE_DIRS) for (const f of walk(dir)) files.add(f);
