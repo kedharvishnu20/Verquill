@@ -192,7 +192,7 @@ test("exactly one mode is marked as the suggestion", () => {
   assert.match(modal, /classList\.add\("suggested"\)/);
 });
 
-// ── FS-01 / K-32: bulk on a repeating element that carries no class ──────────
+// ── VQ-01 / K-32: bulk on a repeating element that carries no class ──────────
 //
 // Reported from real use, twice: "I am trying to use bulk in the extract
 // activity but it is still finding only 1 image, not all of them —

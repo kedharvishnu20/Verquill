@@ -246,7 +246,7 @@ const logsEl = () => dom.window.document.getElementById("mon-logs");
 test("the record reaches the pane as one entry, one line per field", () => {
   logsEl().innerHTML = "";
   renderProvenance(buildProvenance(ROW));
-  const box = logsEl().querySelector(".fs-provenance");
+  const box = logsEl().querySelector(".vq-provenance");
   assert.ok(box, "nothing was drawn");
   const text = box.textContent;
   for (const field of ["name", "price", "brand", "sku"]) {

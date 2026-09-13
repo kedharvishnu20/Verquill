@@ -33,9 +33,9 @@ import { logger } from "../utils/logger.js";
 
 const MODULE = "session-store";
 
-const KEY_INDEX = "fs_sessions_index"; // name -> metadata, plaintext
-const KEY_BLOBS = "fs_sessions_enc"; // name -> ciphertext
-const KEY_SK = "fs_sessions_key"; // the AES key, as JWK
+const KEY_INDEX = "vq_sessions_index"; // name -> metadata, plaintext
+const KEY_BLOBS = "vq_sessions_enc"; // name -> ciphertext
+const KEY_SK = "vq_sessions_key"; // the AES key, as JWK
 
 /** Enough for anyone's saved logins; a bound so this cannot grow forever. */
 const MAX_SESSIONS = 50;

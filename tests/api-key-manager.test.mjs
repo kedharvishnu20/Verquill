@@ -80,7 +80,7 @@ test("repeated restarts do not mint a replacement key", async () => {
   const km = await restartWorker();
   await km.initSessionKey();
   assert.equal(await km.getApiKey("gemini"), "AIzaSy-REAL-KEY-123");
-  assert.ok(sessionArea.has("fs_session_key"));
+  assert.ok(sessionArea.has("vq_session_key"));
 });
 
 test("concurrent initSessionKey calls share one key", async () => {
@@ -107,8 +107,8 @@ test("closing the browser clears keys rather than corrupting them", async () => 
 });
 
 test("an undecryptable blob is dropped, not reported as a stored key", async () => {
-  sessionArea.set("fs_api_keys_enc", {
-    ...sessionArea.get("fs_api_keys_enc"),
+  sessionArea.set("vq_api_keys_enc", {
+    ...sessionArea.get("vq_api_keys_enc"),
     openai: JSON.stringify({
       iv: "AAAAAAAAAAAAAAAA",
       ct: "AAAAAAAAAAAAAAAAAAAAAAAA",

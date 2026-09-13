@@ -89,11 +89,11 @@ export default function App() {
       // forever is a worse trade than retyping it — and a token with
       // Contents: Read & Write on your repositories is the last one that
       // should have been the exception.
-      chrome.storage.local.get(["fs_github_repo"], (res) => {
-        if (res.fs_github_repo) setRepoUrl(res.fs_github_repo);
+      chrome.storage.local.get(["vq_github_repo"], (res) => {
+        if (res.vq_github_repo) setRepoUrl(res.vq_github_repo);
         if (chrome.storage.session) {
-          chrome.storage.session.get(["fs_github_pat"], (s) => {
-            if (s?.fs_github_pat) setPat(s.fs_github_pat);
+          chrome.storage.session.get(["vq_github_pat"], (s) => {
+            if (s?.vq_github_pat) setPat(s.vq_github_pat);
             setSettingsLoaded(true);
           });
         } else {
@@ -103,7 +103,7 @@ export default function App() {
       // Anything left in local by a previous version is swept rather than
       // read. Moving where new tokens go would otherwise leave the old one on
       // disk indefinitely, which is most of the exposure this fix is about.
-      chrome.storage.local.remove("fs_github_pat");
+      chrome.storage.local.remove("vq_github_pat");
     } else {
       setSettingsLoaded(true);
     }
@@ -122,13 +122,13 @@ export default function App() {
       try {
         const stored = await chrome.storage.local.get(null);
         Object.keys(stored)
-          .filter((k) => k.startsWith("fs_active_pipeline"))
+          .filter((k) => k.startsWith("vq_active_pipeline"))
           .forEach((k) => {
             const p = stored[k];
             if (p && typeof p === "object" && Array.isArray(p.steps)) {
               if (!p.id) p.id = k;
               if (!p.name) p.name = "Untitled Pipeline";
-              const short = p.id.replace(/^(local_)?fs_active_pipeline_?/, "");
+              const short = p.id.replace(/^(local_)?vq_active_pipeline_?/, "");
               p._displayId = short ? `#${short.slice(-6)}` : "#local";
               p.source = "local";
               if (!all.find((x) => x.id === p.id)) all.push(p);
@@ -187,9 +187,9 @@ export default function App() {
       loadData(pat, repoUrl);
     };
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      chrome.storage.local.set({ fs_github_repo: repoUrl }, () => {
+      chrome.storage.local.set({ vq_github_repo: repoUrl }, () => {
         if (chrome.storage.session) {
-          chrome.storage.session.set({ fs_github_pat: pat }, done);
+          chrome.storage.session.set({ vq_github_pat: pat }, done);
         } else {
           // No session storage means no safe place to keep it. It stays in
           // this page's memory for as long as the tab is open and is not
@@ -207,7 +207,7 @@ export default function App() {
   const handleLoad = (p) => {
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
       const copy = stripLocalFields(p);
-      chrome.storage.local.set({ fs_marketplace_load: copy }, () =>
+      chrome.storage.local.set({ vq_marketplace_load: copy }, () =>
         showToast("Pipeline loaded into sidepanel."),
       );
     } else {
@@ -248,7 +248,7 @@ export default function App() {
   const handleSaveLocally = (p) => {
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
       const copy = stripLocalFields(p);
-      const key = `fs_active_pipeline_saved_${copy.id || Date.now()}`;
+      const key = `vq_active_pipeline_saved_${copy.id || Date.now()}`;
       chrome.storage.local.set({ [key]: copy }, () => {
         showToast("Saved locally.");
         loadData(pat, repoUrl);

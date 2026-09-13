@@ -35,9 +35,9 @@ const MSG = {
   PIPELINE_PAUSE: "pipeline:pause",
   PIPELINE_RESUME: "pipeline:resume",
 };
-let SK = { PIPELINE: "fs_active_pipeline" };
-SK.STORAGE_FILES = "fs_storage_files_v1";
-SK.UPLOAD_ACTIVITIES = "fs_upload_activities_v1";
+let SK = { PIPELINE: "vq_active_pipeline" };
+SK.STORAGE_FILES = "vq_storage_files_v1";
+SK.UPLOAD_ACTIVITIES = "vq_upload_activities_v1";
 
 let _tabId = null;
 /**
@@ -109,7 +109,7 @@ const elBoardViewport = document.getElementById("board-viewport");
 /**
  * Which tab this panel is driving.
  *
- * The board is stored per tab under `fs_active_pipeline_<tabId>` (E-13), so
+ * The board is stored per tab under `vq_active_pipeline_<tabId>` (E-13), so
  * this answer decides which pipeline appears. Getting it wrong does not look
  * like an error — it looks like the user's work is gone.
  *
@@ -142,9 +142,9 @@ async function _resolveTabId() {
 async function init() {
   _tabId = await _resolveTabId();
   if (_tabId != null) {
-    SK.PIPELINE = `fs_active_pipeline_${_tabId}`;
+    SK.PIPELINE = `vq_active_pipeline_${_tabId}`;
   } else {
-    // Falling through to the bare `fs_active_pipeline` key is the dangerous
+    // Falling through to the bare `vq_active_pipeline` key is the dangerous
     // part, and it used to happen in silence: the board loads empty, the user
     // reasonably concludes their pipeline is gone, and the moment they touch
     // anything, saveState writes to that shared key — so the next boot that
@@ -169,7 +169,7 @@ async function init() {
     }
 
     _tabId = activeInfo.tabId;
-    SK.PIPELINE = `fs_active_pipeline_${_tabId}`;
+    SK.PIPELINE = `vq_active_pipeline_${_tabId}`;
     const saved = (await chrome.storage.local.get(SK.PIPELINE))[SK.PIPELINE];
 
     // A panel that booted without a tab has been writing to the shared key.
@@ -1062,12 +1062,12 @@ function bindGlobalControls() {
       libList.innerHTML = `<div style="color: var(--dim); font-size: 11px; padding: 4px;">Loading...</div>`;
 
       const res = await chrome.storage.local.get([
-        "fs_github_pat",
-        "fs_github_repo",
+        "vq_github_pat",
+        "vq_github_repo",
       ]);
-      const pat = res.fs_github_pat;
+      const pat = res.vq_github_pat;
       let repoUrl =
-        res.fs_github_repo ||
+        res.vq_github_repo ||
         "https://github.com/kedharvishnu20/Verquill_Market_place.git";
 
       let repoPath = repoUrl
@@ -1096,7 +1096,7 @@ function bindGlobalControls() {
       try {
         const stored = await chrome.storage.local.get(null);
         Object.keys(stored)
-          .filter((k) => k.startsWith("fs_active_pipeline"))
+          .filter((k) => k.startsWith("vq_active_pipeline"))
           .forEach((k) => {
             const p = stored[k];
             if (p && typeof p === "object" && Array.isArray(p.steps)) {
@@ -3923,8 +3923,8 @@ function bindConfigInputs(container = document) {
     // every expand, collapse, add and remove — so editing a selector was
     // jumpy for a reason (E-10). A marker does the same job without touching
     // the node; a re-rendered element is a new node and carries no marker.
-    if (el.dataset.fsBound === "1") return;
-    el.dataset.fsBound = "1";
+    if (el.dataset.vqBound === "1") return;
+    el.dataset.vqBound = "1";
     const newEl = el;
 
     newEl.addEventListener("change", (e) => {
@@ -4827,7 +4827,7 @@ function _applyPickedFrame(step, frameUrl) {
 /** Disarm the pickers in every frame that was not the one clicked in. */
 function _cancelPickersElsewhere(tabId) {
   chrome.tabs
-    .sendMessage(tabId, { type: "FS_PICK_CANCEL", payload: {} })
+    .sendMessage(tabId, { type: "VQ_PICK_CANCEL", payload: {} })
     .catch(() => {});
 }
 
@@ -4853,7 +4853,7 @@ async function _pickSelector(stepId, key) {
   try {
     if (!(await _ensureContentReady(tab.id))) return;
     const resp = await chrome.tabs.sendMessage(tab.id, {
-      type: "FS_PICK_SELECTOR",
+      type: "VQ_PICK_SELECTOR",
       payload: { bulk: mode },
     });
     _cancelPickersElsewhere(tab.id);
@@ -5389,7 +5389,7 @@ async function _addExtractField(stepId) {
   try {
     if (!(await _ensureContentReady(tab.id))) return;
     const resp = await chrome.tabs.sendMessage(tab.id, {
-      type: "FS_PICK_SELECTOR",
+      type: "VQ_PICK_SELECTOR",
       payload: { bulk, scopeSelector },
     });
     _cancelPickersElsewhere(tab.id);
@@ -5434,7 +5434,7 @@ async function _addFillField(stepId) {
   try {
     if (!(await _ensureContentReady(tab.id))) return;
     const resp = await chrome.tabs.sendMessage(tab.id, {
-      type: "FS_PICK_SELECTOR",
+      type: "VQ_PICK_SELECTOR",
       payload: { bulk: false },
     });
     _cancelPickersElsewhere(tab.id);
@@ -5609,12 +5609,12 @@ function _registerKey(stepId) {
 function listenToSystem() {
   // ── Marketplace "Run Now" / "Load" bridge ───────────────────────────────
   // The marketplace SPA cannot know our tab-scoped SK.PIPELINE key, so it
-  // writes to a shared key fs_marketplace_load. We pick it up here and
+  // writes to a shared key vq_marketplace_load. We pick it up here and
   // immediately load it into the active canvas, then clear the bridge key.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-    if (!changes.fs_marketplace_load) return;
-    const pipeline = changes.fs_marketplace_load.newValue;
+    if (!changes.vq_marketplace_load) return;
+    const pipeline = changes.vq_marketplace_load.newValue;
     if (
       !pipeline ||
       typeof pipeline !== "object" ||
@@ -5626,7 +5626,7 @@ function listenToSystem() {
     renderPipeline();
     chrome.storage.local.set({ [SK.PIPELINE]: _pipeline });
     // Clear the bridge key so this won't re-trigger
-    chrome.storage.local.remove("fs_marketplace_load");
+    chrome.storage.local.remove("vq_marketplace_load");
     notify(
       "info-log",
       `Pipeline "${pipeline.name || pipeline.id}" loaded from Marketplace.`,
@@ -5742,15 +5742,15 @@ const MAX_LOG_ENTRIES = 500;
 export function notify(levelClass, message) {
   logToMonitor(levelClass, message);
 
-  let host = document.getElementById("fs-toasts");
+  let host = document.getElementById("vq-toasts");
   if (!host) {
     host = document.createElement("div");
-    host.id = "fs-toasts";
+    host.id = "vq-toasts";
     document.body.appendChild(host);
   }
 
   const el = document.createElement("div");
-  el.className = `fs-toast ${levelClass}`;
+  el.className = `vq-toast ${levelClass}`;
   el.textContent = String(message ?? "");
   host.appendChild(el);
 
@@ -6010,7 +6010,7 @@ function renderProvenance(rows) {
   if (!logs || !Array.isArray(rows) || rows.length === 0) return;
 
   const box = document.createElement("div");
-  box.className = "log-entry info-log fs-provenance";
+  box.className = "log-entry info-log vq-provenance";
 
   const head = document.createElement("div");
   head.className = "log-msg";

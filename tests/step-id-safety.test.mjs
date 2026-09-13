@@ -76,7 +76,7 @@ test("an ordinary id still survives the import unchanged", () => {
     "s_1757740000123",
     "step_loop_products",
     "e1",
-    "FS-0142",
+    "VQ-0142",
     "a_b-c_9",
   ]) {
     assert.ok(SAFE_ID.test(ok), `rejected an ordinary id: ${ok}`);

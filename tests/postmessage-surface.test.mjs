@@ -4,7 +4,7 @@
 // `event.source !== window`, which every script running in the page satisfies.
 // The module docblock claimed events were "source-checked against
 // window.location.origin"; no such check existed. Any page could post
-// FS_STEP_EXEC and drive CLICK, FILL, SELECT, DRAG_DROP, NAVIGATE,
+// VQ_STEP_EXEC and drive CLICK, FILL, SELECT, DRAG_DROP, NAVIGATE,
 // UPLOAD_ACTIVITY or the selector picker, then read the result off the _ACK
 // reply the listener posted back with targetOrigin "*".
 //
@@ -53,7 +53,7 @@ test("a page cannot drive step execution over postMessage", async () => {
   });
 
   await postFromPage(h, {
-    type: "FS_STEP_EXEC",
+    type: "VQ_STEP_EXEC",
     id: "1",
     payload: { type: "CLICK", config: { selector: ".danger" } },
   });
@@ -80,7 +80,7 @@ test("a page cannot open the selector picker", async () => {
   };
 
   await postFromPage(h, {
-    type: "FS_PICK_SELECTOR",
+    type: "VQ_PICK_SELECTOR",
     id: "2",
     payload: { bulk: true },
   });
@@ -102,7 +102,7 @@ test("no result is posted back to the page", () => {
 test("the sniffer bridge still forwards page traffic", async () => {
   const h = await loadInjector(`<p>page</p>`);
   const sent = await postFromPage(h, {
-    type: "FS_NETWORK_SNIFF",
+    type: "VQ_NETWORK_SNIFF",
     payload: {
       method: "post",
       url: "https://api.example.test/items",
@@ -123,7 +123,7 @@ test("the sniffer bridge still forwards page traffic", async () => {
 test("sniffer payloads are clamped, not trusted", async () => {
   const h = await loadInjector(`<p>page</p>`);
   const sent = await postFromPage(h, {
-    type: "FS_NETWORK_SNIFF",
+    type: "VQ_NETWORK_SNIFF",
     payload: {
       method: "GET",
       url: "https://x.test/" + "a".repeat(9000),
@@ -151,25 +151,25 @@ test("sniffer payloads are clamped, not trusted", async () => {
 test("a malformed sniffer payload is dropped", async () => {
   const h = await loadInjector(`<p>page</p>`);
   assert.deepEqual(
-    await postFromPage(h, { type: "FS_NETWORK_SNIFF", payload: null }),
+    await postFromPage(h, { type: "VQ_NETWORK_SNIFF", payload: null }),
     [],
   );
   assert.deepEqual(
-    await postFromPage(h, { type: "FS_NETWORK_SNIFF", payload: { url: 42 } }),
+    await postFromPage(h, { type: "VQ_NETWORK_SNIFF", payload: { url: 42 } }),
     [],
   );
-  assert.deepEqual(await postFromPage(h, { type: "FS_NETWORK_SNIFF" }), []);
+  assert.deepEqual(await postFromPage(h, { type: "VQ_NETWORK_SNIFF" }), []);
   h.close();
 });
 
-test("unknown FS_ message types are ignored entirely", async () => {
+test("unknown VQ_ message types are ignored entirely", async () => {
   const h = await loadInjector(`<p>page</p>`);
   assert.deepEqual(
-    await postFromPage(h, { type: "FS_FORM_FILL_ROW", payload: {} }),
+    await postFromPage(h, { type: "VQ_FORM_FILL_ROW", payload: {} }),
     [],
   );
   assert.deepEqual(
-    await postFromPage(h, { type: "FS_ANYTHING", payload: {} }),
+    await postFromPage(h, { type: "VQ_ANYTHING", payload: {} }),
     [],
   );
   h.close();

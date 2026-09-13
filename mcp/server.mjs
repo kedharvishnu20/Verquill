@@ -514,7 +514,7 @@ server.tool(
  * "playwright"`, and Node resolves that from the script's own location. A file
  * in /tmp resolves nothing.
  */
-const RUN_DIR = path.join(ROOT, ".fs-mcp-runs");
+const RUN_DIR = path.join(ROOT, ".vq-mcp-runs");
 
 /**
  * A browser for the emitted script to drive, when the environment has not
@@ -528,7 +528,7 @@ const RUN_DIR = path.join(ROOT, ".fs-mcp-runs");
  * install command.
  */
 async function _findBrowser() {
-  if (process.env.FS_BROWSER_PATH) return process.env.FS_BROWSER_PATH;
+  if (process.env.VQ_BROWSER_PATH) return process.env.VQ_BROWSER_PATH;
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH;
   if (!base) return null;
   let entries = [];
@@ -635,7 +635,7 @@ server.tool(
         const child = spawn(process.execPath, [scriptPath], {
           cwd: ROOT,
           env: browserPath
-            ? { ...process.env, FS_BROWSER_PATH: browserPath }
+            ? { ...process.env, VQ_BROWSER_PATH: browserPath }
             : process.env,
         });
         let stdout = "";

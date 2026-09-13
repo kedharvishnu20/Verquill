@@ -72,14 +72,14 @@ function runExport(src, file, rows) {
   return new Function(
     "fs",
     "process",
-    "fsRows",
-    "fsDropped",
-    "fsFormatRows",
+    "vqRows",
+    "vqDropped",
+    "vqFormatRows",
     "console",
     exportBlock(src),
   )(
     require$fs,
-    { env: { FS_OUT_FILE: file } },
+    { env: { VQ_OUT_FILE: file } },
     rows,
     0,
     formatters.formatRows,
@@ -233,7 +233,7 @@ test("a format that cannot be appended to fails before it writes a broken file",
 // ── What the exported script does, run for real ──────────────────────────────
 
 test("the Node script appends CSV rows without repeating the header", () => {
-  const dir = mkdtempSync(join(tmpdir(), "fs-append-"));
+  const dir = mkdtempSync(join(tmpdir(), "vq-append-"));
   const file = join(dir, "daily.csv");
   try {
     const src = emitNode({
@@ -259,7 +259,7 @@ test("the Node script appends CSV rows without repeating the header", () => {
 });
 
 test("the Node script refuses to append under a header that does not match", () => {
-  const dir = mkdtempSync(join(tmpdir(), "fs-append-"));
+  const dir = mkdtempSync(join(tmpdir(), "vq-append-"));
   const file = join(dir, "daily.csv");
   try {
     writeFileSync(file, "price\r\n10\r\n", "utf8");
@@ -330,7 +330,7 @@ test("both emitters refuse a format that cannot be appended to", () => {
 
 test("a plain export exports exactly as it did", () => {
   const src = emitNode({ name: "d", steps: [exportStep({})] });
-  assert.match(src, /fs\.writeFileSync\(_out, fsFormatRows\(fsRows, 'csv'\)/);
+  assert.match(src, /fs\.writeFileSync\(_out, vqFormatRows\(vqRows, 'csv'\)/);
   assert.ok(!src.includes("appendFileSync"));
 });
 

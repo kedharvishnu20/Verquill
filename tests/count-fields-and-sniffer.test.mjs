@@ -227,7 +227,7 @@ test("the data-document type test accepts what APIs actually send", () => {
 //
 // A classic script's top-level `const` becomes a lexical binding created at
 // instantiation, before any statement runs — so the second evaluation threw
-// `Identifier 'FS_ORIGIN' has already been declared` and took the content
+// `Identifier 'VQ_ORIGIN' has already been declared` and took the content
 // script down with it. No runtime guard can catch that; the bindings have to
 // stop being global.
 

@@ -26,7 +26,7 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 /** The same search the MCP runner does, so the two agree about what exists. */
 async function findBrowser() {
-  if (process.env.FS_BROWSER_PATH) return process.env.FS_BROWSER_PATH;
+  if (process.env.VQ_BROWSER_PATH) return process.env.VQ_BROWSER_PATH;
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH;
   if (!base) return null;
   let dirs = [];
@@ -65,7 +65,7 @@ test(
     });
     await new Promise((r) => site.listen(0, "127.0.0.1", r));
     const origin = `http://127.0.0.1:${site.address().port}`;
-    const dir = await mkdtemp(join(tmpdir(), "fs-mcp-"));
+    const dir = await mkdtemp(join(tmpdir(), "vq-mcp-"));
 
     try {
       const { ast } = compilePipeline({
@@ -94,12 +94,12 @@ test(
 
       // Written under the repo, because the script imports playwright and Node
       // resolves that from the script's own location.
-      const file = join(ROOT, `.fs-mcp-runs-test-${Date.now()}.mjs`);
+      const file = join(ROOT, `.vq-mcp-runs-test-${Date.now()}.mjs`);
       await writeFile(file, emitNode(ast), "utf8");
       const out = await new Promise((resolve) => {
         const child = spawn(process.execPath, [file], {
           cwd: ROOT,
-          env: { ...process.env, FS_BROWSER_PATH: browser },
+          env: { ...process.env, VQ_BROWSER_PATH: browser },
         });
         let stdout = "";
         let stderr = "";

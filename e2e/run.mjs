@@ -406,7 +406,7 @@ const step = (type, config) => ({ id: `s_${type}`, type, config });
 async function seedStorageFile() {
   await env.sw.evaluate(async () => {
     await chrome.storage.local.set({
-      fs_storage_files_v1: [
+      vq_storage_files_v1: [
         {
           id: "e2e-shot",
           name: "shot.png",
@@ -929,7 +929,7 @@ test("a schedule fires and runs the pipeline it was saved with", async () => {
             resolve(all.map((a) => a.name).includes(name)),
           );
         }),
-      `fs_schedule_${id}`,
+      `vq_schedule_${id}`,
     );
     assert.equal(armed, true, "the schedule was stored with no alarm");
 
@@ -959,7 +959,7 @@ test("a schedule fires and runs the pipeline it was saved with", async () => {
             resolve(all.map((a) => a.name).includes(name)),
           );
         }),
-      `fs_schedule_${id}`,
+      `vq_schedule_${id}`,
     );
     // An alarm outliving its schedule fires forever for something the user
     // deleted and can no longer see.

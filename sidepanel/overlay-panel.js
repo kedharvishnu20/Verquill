@@ -10,8 +10,8 @@
 // the page, and a second copy of that is a second thing to keep correct.
 import { _ensureContentReady, notify } from "./pipeline-builder.js";
 
-const SK_PREFS = "fs_overlay_prefs";
-const SK_PALETTE = "fs_zone_palette";
+const SK_PREFS = "vq_overlay_prefs";
+const SK_PALETTE = "vq_zone_palette";
 
 const DEFAULT_PREFS = {
   enabled: true,

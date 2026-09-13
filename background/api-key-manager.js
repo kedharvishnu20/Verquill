@@ -36,8 +36,8 @@ import { logger } from "../utils/logger.js";
 const MODULE = "api-key-manager";
 
 // Storage keys (both session-scoped; Chrome clears them on browser close)
-const SESSION_KEY_KEYS = "fs_api_keys_enc"; // ciphertext map, provider -> blob
-const SESSION_KEY_SK = "fs_session_key"; // wrapped AES key (JWK)
+const SESSION_KEY_KEYS = "vq_api_keys_enc"; // ciphertext map, provider -> blob
+const SESSION_KEY_SK = "vq_session_key"; // wrapped AES key (JWK)
 
 // ── AES-GCM session key ───────────────────────────────────────────────────────
 /** @type {CryptoKey|null} In-memory handle; rehydrated from storage on demand. */

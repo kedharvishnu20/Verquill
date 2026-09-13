@@ -42,7 +42,7 @@ let listing = [];
 
 test.before(() => {
   if (!existsSync(script)) return;
-  out = mkdtempSync(join(tmpdir(), "fs-dist-"));
+  out = mkdtempSync(join(tmpdir(), "vq-dist-"));
   // fileURLToPath, not .pathname. On Windows a file:// URL's pathname is
   // "/D:/a/Verquill/scripts/build-dist.mjs" — the leading slash makes it an
   // invalid path, and passing it as `cwd` made spawnSync report ENOENT

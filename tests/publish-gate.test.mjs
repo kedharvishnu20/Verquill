@@ -221,9 +221,9 @@ test("the interface no longer claims a pull request it did not open", () => {
 test("the token is written to session storage, never local", () => {
   const save = app.match(/const saveSettings = \(\) => \{[\s\S]*?\n  \};/)?.[0];
   assert.ok(save, "saveSettings should still exist");
-  assert.match(save, /chrome\.storage\.session\.set\(\{ fs_github_pat/);
+  assert.match(save, /chrome\.storage\.session\.set\(\{ vq_github_pat/);
   assert.ok(
-    !/local\.set\([\s\S]{0,80}fs_github_pat/.test(save),
+    !/local\.set\([\s\S]{0,80}vq_github_pat/.test(save),
     "the token is still being written to local storage",
   );
 });
@@ -232,13 +232,13 @@ test("the repository URL still persists, because it is not a secret", () => {
   // Moving everything to session would log the user out of their own settings
   // on every restart for no gain.
   const save = app.match(/const saveSettings = \(\) => \{[\s\S]*?\n  \};/)?.[0];
-  assert.match(save, /local\.set\(\{ fs_github_repo/);
+  assert.match(save, /local\.set\(\{ vq_github_repo/);
 });
 
 test("a token left in local by an older version is swept, not read", () => {
   // Changing where new tokens go would otherwise leave the old one on disk
   // indefinitely — which is most of the exposure this was about.
-  assert.match(app, /local\.remove\("fs_github_pat"\)/);
+  assert.match(app, /local\.remove\("vq_github_pat"\)/);
 });
 
 test("no session storage means no storage, not a quiet fallback", () => {
@@ -247,7 +247,7 @@ test("no session storage means no storage, not a quiet fallback", () => {
   const save = app.match(/const saveSettings = \(\) => \{[\s\S]*?\n  \};/)?.[0];
   const elseArm = save.slice(save.indexOf("chrome.storage.session"));
   assert.ok(
-    !/local\.set[\s\S]{0,60}fs_github_pat/.test(elseArm),
+    !/local\.set[\s\S]{0,60}vq_github_pat/.test(elseArm),
     "it falls back to writing the token to disk",
   );
 });

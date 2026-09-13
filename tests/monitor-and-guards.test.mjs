@@ -129,7 +129,7 @@ test("notify writes to the log pane and shows a banner", () => {
 
   const logs = document.getElementById("mon-logs");
   assert.equal(logs.childElementCount, 1, "it is still recorded permanently");
-  const toast = document.querySelector("#fs-toasts .fs-toast");
+  const toast = document.querySelector("#vq-toasts .vq-toast");
   assert.ok(toast, "and shown where the user is actually looking");
   assert.equal(toast.textContent, "Refresh the target webpage first.");
   assert.ok(
@@ -154,16 +154,16 @@ test("a toast carries page text as text, never as markup", () => {
   )(dom.window.document, () => 0);
 
   notify("error-log", '<img src=x onerror="alert(1)">');
-  const toast = dom.window.document.querySelector(".fs-toast");
+  const toast = dom.window.document.querySelector(".vq-toast");
   assert.equal(toast.querySelectorAll("img").length, 0);
   assert.equal(toast.textContent, '<img src=x onerror="alert(1)">');
 });
 
 test("the toast layer is styled and sits above the board", () => {
-  assert.match(htmlSrc, /#fs-toasts \{[\s\S]*?z-index: 10000/);
+  assert.match(htmlSrc, /#vq-toasts \{[\s\S]*?z-index: 10000/);
   assert.match(
     htmlSrc,
-    /\.fs-toast\.error-log \{\s*border-left-color: var\(--red\)/,
+    /\.vq-toast\.error-log \{\s*border-left-color: var\(--red\)/,
   );
 });
 

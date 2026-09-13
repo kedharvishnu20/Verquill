@@ -30,9 +30,9 @@ import { logger } from "../utils/logger.js";
 const MODULE = "proxy-manager";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const STORAGE_KEY_POOL = "fs_proxy_pool"; // local: pool metadata (no creds)
-const STORAGE_KEY_CREDS = "fs_proxy_creds"; // session: user/pass per host:port
-const STORAGE_KEY_REGION = "fs_proxy_region"; // local: the country geo mode wants
+const STORAGE_KEY_POOL = "vq_proxy_pool"; // local: pool metadata (no creds)
+const STORAGE_KEY_CREDS = "vq_proxy_creds"; // session: user/pass per host:port
+const STORAGE_KEY_REGION = "vq_proxy_region"; // local: the country geo mode wants
 const PROXY_HEALTH_TIMEOUT_MS = 5000;
 const HEALTH_CHECK_URL = "https://httpbin.org/ip";
 

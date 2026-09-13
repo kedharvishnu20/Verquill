@@ -213,20 +213,20 @@ test("the page is asked to run them, and the worker decides", () => {
   );
   // The page reads the DOM; the judging is in the worker, where the module
   // lives. Same split as IF_ELSE and ASSERT.
-  assert.match(injector, /FS_PROBE_SELECTORS/);
+  assert.match(injector, /VQ_PROBE_SELECTORS/);
   const worker = readFileSync(
     new URL("../background/service-worker.js", import.meta.url),
     "utf8",
   );
   assert.match(worker, /judgeSelectors\(/);
-  assert.match(worker, /FS_PROBE_SELECTORS/);
+  assert.match(worker, /VQ_PROBE_SELECTORS/);
 });
 
 test("the probe is not sent down the step path, which rewrites its type", () => {
   // Found in the browser, invisible to every unit test here: `_sendToPage`
   // sets the outer type to "step:execute" because everything it carries is a
   // step. A probe sent through it arrives as a step of type
-  // FS_PROBE_SELECTORS, the page rejects it, and the whole feature does
+  // VQ_PROBE_SELECTORS, the page rejects it, and the whole feature does
   // nothing at all — quietly, because a probe that fails is meant to be a
   // dropped selector rather than a failed run.
   const worker = readFileSync(

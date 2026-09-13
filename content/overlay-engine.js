@@ -140,8 +140,8 @@ let _prefs = {
 
 async function _loadPrefs() {
   try {
-    const { fs_overlay_prefs: p } = await chrome.storage.local.get([
-      "fs_overlay_prefs",
+    const { vq_overlay_prefs: p } = await chrome.storage.local.get([
+      "vq_overlay_prefs",
     ]);
     if (p) _prefs = { ..._prefs, ...p };
   } catch {

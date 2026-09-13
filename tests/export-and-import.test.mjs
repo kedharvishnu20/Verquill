@@ -63,13 +63,13 @@ test("a password typed into a password field becomes an environment lookup", () 
   const secrets = redactSecrets(ast);
 
   assert.equal(secrets.length, 1);
-  assert.equal(secrets[0].env, "FS_SECRET_1");
+  assert.equal(secrets[0].env, "VQ_SECRET_1");
   assert.equal(secrets[0].type, "FILL");
 
   const py = emitPython(ast);
   assert.ok(!py.includes("hunter2"), "the password is not in the file");
-  assert.match(py, /fs_env\("__FS_ENV__FS_SECRET_1__"\)/);
-  assert.match(py, /def fs_env\(s\)/, "and the script can resolve it");
+  assert.match(py, /vq_env\("__VQ_ENV__VQ_SECRET_1__"\)/);
+  assert.match(py, /def vq_env\(s\)/, "and the script can resolve it");
   assert.match(py, /os\.environ\.get\(m\.group\(1\), ""\)/);
 });
 
@@ -94,10 +94,10 @@ test("an Authorization header becomes an environment lookup", () => {
     ["node", js],
   ]) {
     assert.ok(!code.includes("sk-live-123"), `${lang} leaked the token`);
-    assert.ok(code.includes("__FS_ENV__FS_SECRET_1__"), `${lang} marker`);
+    assert.ok(code.includes("__VQ_ENV__VQ_SECRET_1__"), `${lang} marker`);
   }
-  assert.match(py, /json\.loads\(fs_env\(/);
-  assert.match(js, /JSON\.parse\(fsEnv\(/);
+  assert.match(py, /json\.loads\(vq_env\(/);
+  assert.match(js, /JSON\.parse\(vqEnv\(/);
 });
 
 test("credential-named config keys are caught wherever they sit", () => {
@@ -126,7 +126,7 @@ test("the Node script can resolve markers too", () => {
   redactSecrets(ast);
   const js = emitNode(ast);
   assert.ok(!js.includes("s3cret"));
-  assert.match(js, /const fsEnv = s =>/);
+  assert.match(js, /const vqEnv = s =>/);
   assert.match(js, /process\.env\[n\] \?\? ''/);
 });
 

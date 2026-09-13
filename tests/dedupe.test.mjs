@@ -197,19 +197,19 @@ test("the exported script carries the same gate", () => {
     assert.match(src, /500/);
     assert.match(src, /url/);
   }
-  assert.match(emitNode(WITH_DEDUPE), /fsCollect\(row\)/);
-  assert.match(emitPython(WITH_DEDUPE), /fs_collect\(row\)/);
+  assert.match(emitNode(WITH_DEDUPE), /vqCollect\(row\)/);
+  assert.match(emitPython(WITH_DEDUPE), /vq_collect\(row\)/);
 });
 
 test("'across runs' becomes a file the script reads and rewrites", () => {
-  assert.match(emitNode(WITH_DEDUPE), /FS_SEEN_FILE/);
-  assert.match(emitPython(WITH_DEDUPE), /FS_SEEN_FILE/);
+  assert.match(emitNode(WITH_DEDUPE), /VQ_SEEN_FILE/);
+  assert.match(emitPython(WITH_DEDUPE), /VQ_SEEN_FILE/);
   // And a run-scoped one does not touch the disk.
   const runScoped = pipeline([
     { type: "DEDUPE", config: { fields: "url", scope: "run" } },
   ]);
-  assert.ok(!/FS_SEEN_FILE/.test(emitNode(runScoped)));
-  assert.ok(!/FS_SEEN_FILE/.test(emitPython(runScoped)));
+  assert.ok(!/VQ_SEEN_FILE/.test(emitNode(runScoped)));
+  assert.ok(!/VQ_SEEN_FILE/.test(emitPython(runScoped)));
 });
 
 test("both generated scripts are still programs", async (t) => {
@@ -217,7 +217,7 @@ test("both generated scripts are still programs", async (t) => {
   const { writeFileSync, mkdtempSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const dir = mkdtempSync(join(tmpdir(), "fs-dedupe-"));
+  const dir = mkdtempSync(join(tmpdir(), "vq-dedupe-"));
 
   const jsFile = join(dir, "run.mjs");
   writeFileSync(jsFile, emitNode(WITH_DEDUPE));

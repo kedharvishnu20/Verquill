@@ -69,7 +69,7 @@ export async function startSite(routes) {
  * suite is worse than a slow one — it teaches you to re-run instead of to look.
  */
 export async function launch() {
-  const userDataDir = await mkdtemp(join(tmpdir(), "fs-e2e-"));
+  const userDataDir = await mkdtemp(join(tmpdir(), "vq-e2e-"));
   const ctx = await chromium.launchPersistentContext(userDataDir, {
     executablePath: CHROME,
     headless: true,

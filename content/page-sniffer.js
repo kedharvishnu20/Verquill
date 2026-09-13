@@ -37,7 +37,7 @@
     try {
       window.postMessage(
         {
-          type: "FS_NETWORK_SNIFF",
+          type: "VQ_NETWORK_SNIFF",
           payload: {
             method: String(method || "GET").toUpperCase(),
             url: String(url || ""),

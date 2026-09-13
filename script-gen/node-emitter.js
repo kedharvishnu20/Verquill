@@ -45,23 +45,23 @@ export function emitNode(pipeline) {
     `const TARGET_ORIGIN = '${pipeline.targetOrigin ?? ""}';`,
     `const MIN_DELAY_MS  = 800;`,
     "",
-    `const PROXY = process.env.FS_PROXY_HOST ? {`,
-    `  server:   process.env.FS_PROXY_HOST,`,
-    `  username: process.env.FS_PROXY_USER ?? '',`,
-    `  password: process.env.FS_PROXY_PASS ?? '',`,
+    `const PROXY = process.env.VQ_PROXY_HOST ? {`,
+    `  server:   process.env.VQ_PROXY_HOST,`,
+    `  username: process.env.VQ_PROXY_USER ?? '',`,
+    `  password: process.env.VQ_PROXY_PASS ?? '',`,
     `} : undefined;`,
     "",
     `// Credentials are not written into this script. Each one appears as`,
-    `// __FS_ENV__NAME__ and is read from the environment variable NAME at run`,
+    `// __VQ_ENV__NAME__ and is read from the environment variable NAME at run`,
     `// time; a name that is not set resolves to an empty string.`,
-    `const fsEnv = s => typeof s === 'string'`,
-    `  ? s.replace(/__FS_ENV__([A-Z0-9_]+)__/g, (_, n) => process.env[n] ?? '')`,
+    `const vqEnv = s => typeof s === 'string'`,
+    `  ? s.replace(/__VQ_ENV__([A-Z0-9_]+)__/g, (_, n) => process.env[n] ?? '')`,
     `  : s;`,
     "",
     `// Value transforms, mirroring utils/value-transforms.js. The pipeline`,
     `// cleans values as it extracts them; a script that skipped this would run,`,
     `// produce a file, and fill the number columns with currency symbols.`,
-    `const fsNumber = t => {`,
+    `const vqNumber = t => {`,
     `  const raw = String(t ?? '');`,
     `  // Scientific notation first, and only where it is unambiguous. Found in`,
     `  // a real scrape — scrapethissite.com reports Antarctica's area as`,
@@ -86,11 +86,11 @@ export function emitNode(pipeline) {
     `  const n = Number(b);`,
     `  return Number.isFinite(n) ? n : null;`,
     `};`,
-    `const fsUrl = (v, base) => { try { return new URL(String(v ?? '').trim(), base).href; } catch { return v; } };`,
+    `const vqUrl = (v, base) => { try { return new URL(String(v ?? '').trim(), base).href; } catch { return v; } };`,
     `// Group and flags mean here exactly what they mean in the panel: 0 is the`,
     `// whole match, an absent group is null rather than a quiet fall back to`,
     `// another one, and only i/m/s are offered because Python has to agree.`,
-    `const fsRegex = (v, p, f = '', g) => {`,
+    `const vqRegex = (v, p, f = '', g) => {`,
     `  const m = String(v ?? '').match(new RegExp(p, f));`,
     `  if (!m) return null;`,
     `  if (g === 0) return m[0];`,
@@ -98,11 +98,11 @@ export function emitNode(pipeline) {
     `  if (m[i] !== undefined) return m[i];`,
     `  return i === 1 && m.length === 1 ? m[0] : null;`,
     `};`,
-    `const fsTrim = v => String(v ?? '').replace(/\\s+/g, ' ').trim();`,
+    `const vqTrim = v => String(v ?? '').replace(/\\s+/g, ' ').trim();`,
     `// Mirrors the in-page transform: tolerant of the URL-safe alphabet and of`,
     `// missing padding, null rather than a mangled string when it was never`,
     `// base64 — a plausible wrong answer is worse than an empty cell.`,
-    `const fsB64 = v => {`,
+    `const vqB64 = v => {`,
     `  const raw = String(v ?? '').trim().replace(/-/g, '+').replace(/_/g, '/');`,
     `  if (raw.length < 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) return null;`,
     `  // fatal: true, like the in-page decoder. Buffer.toString('utf8') would`,
@@ -119,29 +119,29 @@ export function emitNode(pipeline) {
     `// extension's _stepAssert and _stepIfElse read, and both read textContent.`,
     `// innerText drops anything CSS has hidden, so an assertion could pass in`,
     `// the panel and fail in the script for a reason neither would explain.`,
-    `const fsText = async loc => (await loc.count()) > 0 ? fsTrim(await loc.first().evaluate(n => n.textContent)) : null;`,
-    `const fsAttr = async (loc, a) => (await loc.count()) > 0 ? await loc.first().getAttribute(a) : null;`,
+    `const vqText = async loc => (await loc.count()) > 0 ? vqTrim(await loc.first().evaluate(n => n.textContent)) : null;`,
+    `const vqAttr = async (loc, a) => (await loc.count()) > 0 ? await loc.first().getAttribute(a) : null;`,
     "",
     `// An allowlist, mirroring the extension: a filename built from page`,
     `// content must not be able to name a directory, so both separators fall`,
     `// outside it and '..' reduces to nothing.`,
-    `const fsSafeSeg = v => String(v ?? '')`,
+    `const vqSafeSeg = v => String(v ?? '')`,
     `  .replace(/[^\\p{L}\\p{N} ._()\\[\\]{}@#&+,;'!~=%-]/gu, '_')`,
     `  .replace(/^[.\\s]+/, '').replace(/[.\\s]+$/, '').slice(0, 100);`,
     "",
     `// Every row this run extracts, in order, so an EXPORT step has something`,
     `// to write. EXTRACT still prints each row as it goes — that is what the`,
     `// MCP runner reads off stdout — but a printed row is not a file.`,
-    `const fsRows = [];`,
+    `const vqRows = [];`,
     "",
     `// DEDUPE. Null until a DEDUPE step sets it, and from then on every row`,
     `// the script collects is checked — the same gate the extension applies,`,
     `// for the same reason: rows are written as they are read, so filtering`,
     `// afterwards would mean unwriting.`,
-    `let fsDedupe = null;`,
-    `let fsDropped = 0;`,
-    `const fsSeen = new Map();`,
-    `const fsKey = (row, fields) => {`,
+    `let vqDedupe = null;`,
+    `let vqDropped = 0;`,
+    `const vqSeen = new Map();`,
+    `const vqKey = (row, fields) => {`,
     `  const names = fields.length ? fields : Object.keys(row ?? {}).sort();`,
     `  return names.map(n => {`,
     `    const v = (row ?? {})[n];`,
@@ -151,16 +151,16 @@ export function emitNode(pipeline) {
     `    return String(v).replace(/\\s+/g, ' ').trim().toLowerCase();`,
     `  }).join('\\u001f');`,
     `};`,
-    `const fsCollect = row => {`,
-    `  if (fsDedupe) {`,
-    `    const k = fsKey(row, fsDedupe.fields);`,
-    `    if (fsSeen.has(k)) { fsDropped++; return false; }`,
-    `    fsSeen.set(k, 1);`,
+    `const vqCollect = row => {`,
+    `  if (vqDedupe) {`,
+    `    const k = vqKey(row, vqDedupe.fields);`,
+    `    if (vqSeen.has(k)) { vqDropped++; return false; }`,
+    `    vqSeen.set(k, 1);`,
     `    // Forget the oldest rather than grow without bound; a Map iterates in`,
     `    // insertion order, so the first key is the oldest.`,
-    `    if (fsSeen.size > fsDedupe.limit) fsSeen.delete(fsSeen.keys().next().value);`,
+    `    if (vqSeen.size > vqDedupe.limit) vqSeen.delete(vqSeen.keys().next().value);`,
     `  }`,
-    `  fsRows.push(row);`,
+    `  vqRows.push(row);`,
     `  console.log(JSON.stringify(row));`,
     `  return true;`,
     `};`,
@@ -169,32 +169,32 @@ export function emitNode(pipeline) {
     `// answers with its src, a bare <a> with its href, a checkbox only when`,
     `// checked. innerText() for all of it — which is what this used to emit —`,
     `// is the empty string for a grid of images, on every row.`,
-    `const fsReadEl = (el, f) => el.evaluate(${EXTRACT_VALUE_JS}, f);`,
+    `const vqReadEl = (el, f) => el.evaluate(${EXTRACT_VALUE_JS}, f);`,
     "",
     `// Mirrors exporters/row-formatters.js. Columns are the union of every`,
     `// row's keys in first-seen order: Object.keys(rows[0]) would silently drop`,
     `// any column the first row happens not to have, which for scraped data is`,
     `// the common case rather than an edge one.`,
-    `const fsCell = v => v === null || v === undefined ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));`,
-    `const fsHeaders = rows => { const out = [], seen = new Set();`,
+    `const vqCell = v => v === null || v === undefined ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));`,
+    `const vqHeaders = rows => { const out = [], seen = new Set();`,
     `  for (const r of rows) for (const k of Object.keys(r ?? {})) if (!seen.has(k)) { seen.add(k); out.push(k); }`,
     `  return out; };`,
-    `const fsFormatRows = (rows, fmt) => {`,
+    `const vqFormatRows = (rows, fmt) => {`,
     `  const safe = Array.isArray(rows) ? rows : [];`,
     `  if (fmt === 'json') return JSON.stringify(safe, null, 2);`,
     `  if (fmt === 'jsonl') return safe.map(r => JSON.stringify(r)).join('\\n') + (safe.length ? '\\n' : '');`,
     `  if (!safe.length) return '';`,
-    `  const h = fsHeaders(safe);`,
+    `  const h = vqHeaders(safe);`,
     `  if (fmt === 'csv') {`,
-    `    const q = v => { const t = fsCell(v); return /[",\\r\\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };`,
+    `    const q = v => { const t = vqCell(v); return /[",\\r\\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };`,
     `    return [h.map(q).join(',')].concat(safe.map(r => h.map(k => q(r?.[k])).join(','))).join('\\r\\n') + '\\r\\n';`,
     `  }`,
     `  if (fmt === 'tsv') {`,
-    `    const c = v => fsCell(v).replace(/[\\t\\r\\n]/g, ' ');`,
+    `    const c = v => vqCell(v).replace(/[\\t\\r\\n]/g, ' ');`,
     `    return [h.map(c).join('\\t')].concat(safe.map(r => h.map(k => c(r?.[k])).join('\\t'))).join('\\n') + '\\n';`,
     `  }`,
     `  if (fmt === 'xml') {`,
-    `    const esc = v => fsCell(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);`,
+    `    const esc = v => vqCell(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);`,
     `    const tag = n => { const c = String(n).replace(/[^A-Za-z0-9_.-]/g, '_'); return /^[A-Za-z_]/.test(c) ? c : '_' + c; };`,
     `    const out = ['<?xml version="1.0" encoding="UTF-8"?>', '<rows>'];`,
     `    for (const r of safe) { out.push('  <row>');`,
@@ -204,13 +204,13 @@ export function emitNode(pipeline) {
     `    return out.join('\\n') + '\\n';`,
     `  }`,
     `  if (fmt === 'markdown') {`,
-    `    const m = v => fsCell(v).replace(/\\|/g, '\\\\|').replace(/\\r?\\n/g, ' ');`,
+    `    const m = v => vqCell(v).replace(/\\|/g, '\\\\|').replace(/\\r?\\n/g, ' ');`,
     `    return ['| ' + h.map(m).join(' | ') + ' |', '| ' + h.map(() => '---').join(' | ') + ' |']`,
     `      .concat(safe.map(r => '| ' + h.map(k => m(r?.[k])).join(' | ') + ' |')).join('\\n') + '\\n';`,
     `  }`,
     `  throw new Error('Unsupported export format: ' + fmt);`,
     `};`,
-    `const FS_EXT = { csv: 'csv', json: 'json', jsonl: 'jsonl', tsv: 'tsv', xml: 'xml', markdown: 'md' };`,
+    `const VQ_EXT = { csv: 'csv', json: 'json', jsonl: 'jsonl', tsv: 'tsv', xml: 'xml', markdown: 'md' };`,
     "",
     `const sleep = ms => new Promise(r => setTimeout(r, ms));`,
     `const jitter = (min, max) => min + Math.random() * (max - min);`,
@@ -219,7 +219,7 @@ export function emitNode(pipeline) {
     `// A dotted path into a response body — mirrors the worker's _resolvePath,`,
     `// so a rowsPath or cursorPath configured in the panel means the same`,
     `// thing here. A miss anywhere along the path is undefined, not a throw.`,
-    `const fsDig = (body, path) => {`,
+    `const vqDig = (body, path) => {`,
     `  let val = body;`,
     `  for (const part of String(path ?? '').split('.')) {`,
     `    if (val === undefined || val === null) return undefined;`,
@@ -233,22 +233,22 @@ export function emitNode(pipeline) {
     `// rowsPath empty means the body itself, if it is an array — the same`,
     `// rule the worker's rowsPath uses so a single call and a paginated one`,
     `// shape their rows identically.`,
-    `const fsApiRows = (body, rowsPath) => {`,
-    `  const target = rowsPath ? fsDig(body, rowsPath) : body;`,
+    `const vqApiRows = (body, rowsPath) => {`,
+    `  const target = rowsPath ? vqDig(body, rowsPath) : body;`,
     `  return Array.isArray(target) ? target : [];`,
     `};`,
-    `const fsAddQueryParam = (url, key, value) => {`,
+    `const vqAddQueryParam = (url, key, value) => {`,
     `  try { const u = new URL(url); u.searchParams.set(key, String(value)); return u.toString(); }`,
     `  catch { return url + (url.includes('?') ? '&' : '?') + encodeURIComponent(key) + '=' + encodeURIComponent(String(value)); }`,
     `};`,
-    `const fsParseRetryAfterMs = value => {`,
+    `const vqParseRetryAfterMs = value => {`,
     `  if (!value) return null;`,
     `  const t = String(value).trim();`,
     `  if (/^\\d+$/.test(t)) return Number(t) * 1000;`,
     `  const at = Date.parse(t);`,
     `  return Number.isNaN(at) ? null : Math.max(0, at - Date.now());`,
     `};`,
-    `const fsLinkHeaderNext = (value, baseUrl) => {`,
+    `const vqLinkHeaderNext = (value, baseUrl) => {`,
     `  if (!value) return null;`,
     `  for (const part of String(value).split(/,(?=\\s*<)/)) {`,
     `    const u = part.match(/<([^>]+)>/), rel = part.match(/rel\\s*=\\s*"?([^",;]+)"?/i);`,
@@ -261,7 +261,7 @@ export function emitNode(pipeline) {
     `// names one — anything else falls back to the same exponential shape`,
     `// the extension uses — and capped so a chatty server cannot stall the`,
     `// script for an hour.`,
-    `const fsApiFetch = async (url, init) => {`,
+    `const vqApiFetch = async (url, init) => {`,
     `  const maxAttempts = 4, maxTotalWaitMs = 60000, fallbackBaseMs = 1000;`,
     `  let attempt = 0, waitedMs = 0;`,
     `  for (;;) {`,
@@ -269,29 +269,29 @@ export function emitNode(pipeline) {
     `    attempt += 1;`,
     `    const retryable = resp.status === 429 || (resp.status >= 500 && resp.status <= 599);`,
     `    if (!retryable || attempt >= maxAttempts || waitedMs >= maxTotalWaitMs) return resp;`,
-    `    const headerWaitMs = fsParseRetryAfterMs(resp.headers.get('retry-after'));`,
+    `    const headerWaitMs = vqParseRetryAfterMs(resp.headers.get('retry-after'));`,
     `    const backoffMs = fallbackBaseMs * 2 ** (attempt - 1);`,
     `    const waitMs = Math.max(0, Math.min(headerWaitMs ?? backoffMs, maxTotalWaitMs - waitedMs));`,
     `    waitedMs += waitMs;`,
     `    await sleep(waitMs);`,
     `  }`,
     `};`,
-    `const fsApiRequest = async (url, init, timeoutMs) => {`,
+    `const vqApiRequest = async (url, init, timeoutMs) => {`,
     `  const controller = new AbortController();`,
     `  const timer = setTimeout(() => controller.abort(), timeoutMs);`,
-    `  try { return await fsApiFetch(url, { ...init, signal: controller.signal }); }`,
+    `  try { return await vqApiFetch(url, { ...init, signal: controller.signal }); }`,
     `  finally { clearTimeout(timer); }`,
     `};`,
     "",
     `(async () => {`,
-    `  // FS_BROWSER_PATH names a browser binary to use instead of the one`,
+    `  // VQ_BROWSER_PATH names a browser binary to use instead of the one`,
     `  // Playwright downloaded. Headless Playwright reaches for its separate`,
     `  // "headless shell" build by default, so a machine that has full Chromium`,
     `  // but not that variant fails at launch with a message about installing`,
     `  // browsers — this is the way out that needs no second download.`,
     `  const browser = await chromium.launch({`,
     `    proxy: PROXY,`,
-    `    ...(process.env.FS_BROWSER_PATH ? { executablePath: process.env.FS_BROWSER_PATH } : {}),`,
+    `    ...(process.env.VQ_BROWSER_PATH ? { executablePath: process.env.VQ_BROWSER_PATH } : {}),`,
     `  });`,
     `  const context = await browser.newContext();`,
     `  const page    = await context.newPage();`,
@@ -328,7 +328,7 @@ function _conditionNode(condition, config, esc) {
   const fromSelector = config.compareTo === "selector";
   const str = fromSelector ? "_rhs" : `'${value}'`;
   const numRhs = fromSelector
-    ? "fsNumber(_rhs)"
+    ? "vqNumber(_rhs)"
     : Number.isFinite(num)
       ? String(num)
       : null;
@@ -336,7 +336,7 @@ function _conditionNode(condition, config, esc) {
   const numeric = (op) =>
     numRhs === null
       ? null
-      : `((a, b) => a !== null && b !== null && a ${op} b)(fsNumber(await fsText(_loc)), ${numRhs})`;
+      : `((a, b) => a !== null && b !== null && a ${op} b)(vqNumber(await vqText(_loc)), ${numRhs})`;
 
   switch (condition) {
     case "exists":
@@ -344,24 +344,24 @@ function _conditionNode(condition, config, esc) {
     case "not-exists":
       return `(await _loc.count()) === 0`;
     case "is-empty":
-      return `((t => t === null || t === '')(await fsText(_loc)))`;
+      return `((t => t === null || t === '')(await vqText(_loc)))`;
     case "not-empty":
-      return `((t => t !== null && t !== '')(await fsText(_loc)))`;
+      return `((t => t !== null && t !== '')(await vqText(_loc)))`;
     case "text-equals":
-      return `(await fsText(_loc)) === fsTrim(${str})`;
+      return `(await vqText(_loc)) === vqTrim(${str})`;
     case "text-contains":
-      return `((t => t !== null && t.includes(fsTrim(${str})))(await fsText(_loc)))`;
+      return `((t => t !== null && t.includes(vqTrim(${str})))(await vqText(_loc)))`;
     case "text-matches":
       // A pattern read off the page cannot be checked here; a bad one throws
       // at run time, which is what the extension does with it too.
       if (!fromSelector && !isValidRegex(config.value ?? "")) return null;
-      return `((t => t !== null && new RegExp(${fromSelector ? "_rhs" : `'${value.replace(/\\/g, "\\\\")}'`}).test(t))(await fsText(_loc)))`;
+      return `((t => t !== null && new RegExp(${fromSelector ? "_rhs" : `'${value.replace(/\\/g, "\\\\")}'`}).test(t))(await vqText(_loc)))`;
     case "attr-equals":
-      return `((a => a !== null && a.trim() === String(${str}).trim())(await fsAttr(_loc, '${attr}')))`;
+      return `((a => a !== null && a.trim() === String(${str}).trim())(await vqAttr(_loc, '${attr}')))`;
     case "attr-contains":
-      return `((a => a !== null && a.includes(${str}))(await fsAttr(_loc, '${attr}')))`;
+      return `((a => a !== null && a.includes(${str}))(await vqAttr(_loc, '${attr}')))`;
     case "attr-exists":
-      return `(await fsAttr(_loc, '${attr}')) !== null`;
+      return `(await vqAttr(_loc, '${attr}')) !== null`;
     case "number-equals":
       return numeric("===");
     case "number-gt":
@@ -535,9 +535,9 @@ function _assertionNode(assertion, config, esc) {
     case "count-at-most":
       return counted("<=");
     case "text-contains":
-      return `_text !== null && _text.includes(fsTrim('${value}'))`;
+      return `_text !== null && _text.includes(vqTrim('${value}'))`;
     case "text-equals":
-      return `_text !== null && _text === fsTrim('${value}')`;
+      return `_text !== null && _text === vqTrim('${value}')`;
     default:
       return null;
   }
@@ -652,23 +652,23 @@ function _emitNodeStepBody(step) {
       const limit = Number(config.limit) > 0 ? Number(config.limit) : 100000;
       const lines = [
         `// DEDUPE: ${fields.length ? fields.join(", ") : "every field"}`,
-        `fsDedupe = { fields: ${JSON.stringify(fields)}, limit: ${limit} };`,
+        `vqDedupe = { fields: ${JSON.stringify(fields)}, limit: ${limit} };`,
       ];
       if (config.scope === "forever") {
         // The script's equivalent of the extension's stored keys: a file it
         // reads at the start and rewrites at the end. Named, and next to the
         // output, so it is obvious what to delete to start over.
         lines.push(
-          `const _seenFile = process.env.FS_SEEN_FILE ?? '.fs-seen.json';`,
+          `const _seenFile = process.env.VQ_SEEN_FILE ?? '.vq-seen.json';`,
           `if (fs.existsSync(_seenFile)) {`,
           `  try {`,
-          `    for (const k of JSON.parse(fs.readFileSync(_seenFile, 'utf8'))) fsSeen.set(k, 1);`,
+          `    for (const k of JSON.parse(fs.readFileSync(_seenFile, 'utf8'))) vqSeen.set(k, 1);`,
           `  } catch (err) {`,
           `    console.error(\`DEDUPE: could not read \${_seenFile} (\${err.message}); starting fresh.\`);`,
           `  }`,
           `}`,
           `process.on('exit', () => {`,
-          `  try { fs.writeFileSync(_seenFile, JSON.stringify([...fsSeen.keys()])); }`,
+          `  try { fs.writeFileSync(_seenFile, JSON.stringify([...vqSeen.keys()])); }`,
           `  catch (err) { console.error(\`DEDUPE: could not save \${_seenFile} (\${err.message}).\`); }`,
           `});`,
         );
@@ -698,14 +698,14 @@ function _emitNodeStepBody(step) {
           "",
         ];
       }
-      const out = `process.env.FS_OUT_FILE ?? '${config.append ? (config.dataset || "dataset").replace(/[^\w. -]/g, "_") : "export"}.${FORMAT_EXT[fmt]}'`;
+      const out = `process.env.VQ_OUT_FILE ?? '${config.append ? (config.dataset || "dataset").replace(/[^\w. -]/g, "_") : "export"}.${FORMAT_EXT[fmt]}'`;
       if (!config.append) {
         return [
           `// EXPORT → ${fmt}`,
           `{`,
           `  const _out = ${out};`,
-          `  fs.writeFileSync(_out, fsFormatRows(fsRows, '${fmt}'), 'utf8');`,
-          `  console.error(\`Verquill: wrote \${fsRows.length} row(s) to \${_out}\${fsDropped ? \` (\${fsDropped} duplicate(s) dropped)\` : ''}\`);`,
+          `  fs.writeFileSync(_out, vqFormatRows(vqRows, '${fmt}'), 'utf8');`,
+          `  console.error(\`Verquill: wrote \${vqRows.length} row(s) to \${_out}\${vqDropped ? \` (\${vqDropped} duplicate(s) dropped)\` : ''}\`);`,
           `}`,
           "",
         ];
@@ -715,7 +715,7 @@ function _emitNodeStepBody(step) {
         `{`,
         `  const _out = ${out};`,
         `  const _had = fs.existsSync(_out) && fs.statSync(_out).size > 0;`,
-        `  const _text = fsFormatRows(fsRows, '${fmt}');`,
+        `  const _text = vqFormatRows(vqRows, '${fmt}');`,
         ...(fmt === "jsonl"
           ? [`  fs.appendFileSync(_out, _text, 'utf8');`]
           : [
@@ -737,7 +737,7 @@ function _emitNodeStepBody(step) {
               `    fs.writeFileSync(_out, _text, 'utf8');`,
               `  }`,
             ]),
-        `  console.error(\`Verquill: added \${fsRows.length} row(s) to \${_out}\${fsDropped ? \` (\${fsDropped} duplicate(s) dropped)\` : ''}\`);`,
+        `  console.error(\`Verquill: added \${vqRows.length} row(s) to \${_out}\${vqDropped ? \` (\${vqDropped} duplicate(s) dropped)\` : ''}\`);`,
         `}`,
         "",
       ];
@@ -834,7 +834,7 @@ function _emitNodeStepBody(step) {
         `{`,
         `  const _loc = ${_loc(sel)};`,
         `  const _count = await _loc.count();`,
-        `  const _text = await fsText(_loc);`,
+        `  const _text = await vqText(_loc);`,
         `  if (!(${test})) {`,
         config.optional === true
           ? `    console.warn('ASSERT (${assertion}) failed on ${sel} - optional, continuing');`
@@ -937,7 +937,7 @@ function _emitNodeStepBody(step) {
           // This mode has nothing to probe, so a run asked for 20 pages of a
           // 5-page site fetched 15 empty ones — and a site that clamps
           // ?page=99 to the last page served the same rows 15 times instead.
-          `  const _rowsBefore = fsRows.length;`,
+          `  const _rowsBefore = vqRows.length;`,
         );
       } else {
         lines.push(`for (let i = 0; i < ${config.max ?? 10}; i++) {`);
@@ -991,7 +991,7 @@ function _emitNodeStepBody(step) {
           // The same rule the run applies: only after a page that produced
           // something, so a pipeline whose first page is genuinely empty is
           // not cut off at page one.
-          `  if (_rowsBefore > 0 && fsRows.length === _rowsBefore) {`,
+          `  if (_rowsBefore > 0 && vqRows.length === _rowsBefore) {`,
           `    console.error(\`Pagination: stopped after \${i + 1} page(s) — that page produced no rows.\`);`,
           `    break;`,
           `  }`,
@@ -1031,8 +1031,8 @@ function _emitNodeStepBody(step) {
         lines.push(
           `  const _loc2 = ${otherLoc};`,
           config.attr
-            ? `  const _rhs = await fsAttr(_loc2, '${esc(String(config.attr))}');`
-            : `  const _rhs = await fsText(_loc2);`,
+            ? `  const _rhs = await vqAttr(_loc2, '${esc(String(config.attr))}');`
+            : `  const _rhs = await vqText(_loc2);`,
           // Nothing matched the other side, so there is nothing to compare
           // with and the ELSE branch is taken. Without this guard an empty
           // left side would "equal" a missing right side.
@@ -1232,14 +1232,14 @@ function _downloadNode(config, esc) {
     ? segments
         .map(
           (parts) =>
-            `fsSafeSeg([${parts
+            `vqSafeSeg([${parts
               .map((p) =>
                 p.lit !== undefined ? `'${esc(p.lit)}'` : VARS[p.var],
               )
               .join(", ")}].join(''))`,
         )
         .join(", ")
-    : "fsSafeSeg(_name)";
+    : "vqSafeSeg(_name)";
 
   const literal = String(config.url ?? "").trim();
   const max = Number(config.max) > 0 ? Number(config.max) : 25;
@@ -1319,7 +1319,7 @@ function _emitNodeFill(config, esc) {
   for (const field of fields) {
     if (!field?.selector) continue;
     lines.push(
-      `await ${_verb(esc(_sel(field.selector)), `fill('${esc(_sel(field.selector))}', fsEnv('${esc(field.value ?? "")}'))`, `fill(fsEnv('${esc(field.value ?? "")}'))`)};`,
+      `await ${_verb(esc(_sel(field.selector)), `fill('${esc(_sel(field.selector))}', vqEnv('${esc(field.value ?? "")}'))`, `fill(vqEnv('${esc(field.value ?? "")}'))`)};`,
     );
   }
   if (config.submitSelector) {
@@ -1339,14 +1339,14 @@ function _emitNodeFill(config, esc) {
 function _transformNode(expr, field) {
   let out = expr;
   for (const name of field.transform ?? []) {
-    if (name === "number") out = `fsNumber(${out})`;
-    else if (name === "trim") out = `fsTrim(${out})`;
-    else if (name === "url") out = `fsUrl(${out}, page.url())`;
+    if (name === "number") out = `vqNumber(${out})`;
+    else if (name === "trim") out = `vqTrim(${out})`;
+    else if (name === "url") out = `vqUrl(${out}, page.url())`;
     else if (name === "lower") out = `String(${out} ?? '').toLowerCase()`;
     else if (name === "upper") out = `String(${out} ?? '').toUpperCase()`;
     // Same contract as the in-page transform: not-base64 becomes null rather
     // than a mangled string, so a script and a run agree on what failed.
-    else if (name === "base64") out = `fsB64(${out})`;
+    else if (name === "base64") out = `vqB64(${out})`;
     else if (name === "regex") {
       const raw = String(field.regexPattern ?? "");
       const flags = normalizeRegexFlags(field.regexFlags);
@@ -1362,7 +1362,7 @@ function _transformNode(expr, field) {
             ? `, '${flags}'`
             : ""
           : `, '${flags}', ${group}`;
-      out = `fsRegex(${out}, '${pattern}'${extra})`;
+      out = `vqRegex(${out}, '${pattern}'${extra})`;
     }
   }
   return out;
@@ -1429,7 +1429,7 @@ function _extractNode(config) {
       attribute: attribute ?? "",
       countSelector: countSelector ?? "",
     });
-    const expr = _transformNode(`await fsReadEl(_el, ${spec})`, field);
+    const expr = _transformNode(`await vqReadEl(_el, ${spec})`, field);
     if (expr === null) {
       lines.push(
         `// INVALID: field '${name}' has a pattern JavaScript will not accept.`,
@@ -1461,7 +1461,7 @@ function _extractNode(config) {
     `      // ?? not ||: "0", "" and false are real extracted values.`,
     `      row[_k] = (_v.length === 1 ? _v[0] : (_i < _v.length ? _v[_i] : null)) ?? null;`,
     `    }`,
-    `    fsCollect(row);`,
+    `    vqCollect(row);`,
     `  }`,
     "}",
     "",
@@ -1471,7 +1471,7 @@ function _extractNode(config) {
 
 function _formFillNode(config) {
   const lines = [
-    `const rows = csv.parse(fs.readFileSync(process.env.FS_DATA_FILE ?? 'data.csv'), { columns: true });`,
+    `const rows = csv.parse(fs.readFileSync(process.env.VQ_DATA_FILE ?? 'data.csv'), { columns: true });`,
     `for (const row of rows) {`,
   ];
   for (const m of config.fieldMappings ?? []) {
@@ -1489,7 +1489,7 @@ function _formFillNode(config) {
 }
 
 /**
- * One API step. `fsApiFetch` carries the 429/5xx retry (K-24) for every
+ * One API step. `vqApiFetch` carries the 429/5xx retry (K-24) for every
  * request it makes, paginated or not. Pagination (K-25) is only emitted when
  * it can actually stop on its own — a cursor mode with nowhere to read the
  * cursor from, or any pagination with no rowsPath to say what an empty page
@@ -1537,7 +1537,7 @@ function _apiNode(config) {
     ];
   }
 
-  const bodyExpr = `('${esc(body)}' ? fsEnv('${esc(body)}') : undefined)`;
+  const bodyExpr = `('${esc(body)}' ? vqEnv('${esc(body)}') : undefined)`;
   const initExpr = `{ method: '${esc(method)}', headers: apiHeaders, body: ${bodyExpr} }`;
 
   // Braced: two API steps in the same pipeline would otherwise both declare
@@ -1547,19 +1547,19 @@ function _apiNode(config) {
   const lines = [
     `{`,
     `let apiHeaders = {};`,
-    `try { apiHeaders = JSON.parse(fsEnv('${esc(headers)}')); } catch { apiHeaders = {}; }`,
+    `try { apiHeaders = JSON.parse(vqEnv('${esc(headers)}')); } catch { apiHeaders = {}; }`,
   ];
 
   if (mode === "none") {
     lines.push(
-      `const apiResp = await fsApiRequest(${urlExpr}, ${initExpr}, ${timeout});`,
+      `const apiResp = await vqApiRequest(${urlExpr}, ${initExpr}, ${timeout});`,
       failOnHttp
         ? `if (!apiResp.ok) throw new Error('API failed: ' + apiResp.status + ' ' + apiResp.statusText);`
         : `// failOnHttpError disabled`,
       `const apiText = await apiResp.text();`,
       `let apiBody = apiText;`,
       `try { apiBody = JSON.parse(apiText); } catch {}`,
-      `const apiRows = fsApiRows(apiBody, '${esc(rowsPath)}');`,
+      `const apiRows = vqApiRows(apiBody, '${esc(rowsPath)}');`,
       `const apiResult = { status: apiResp.status, ok: apiResp.ok, body: apiBody, rows: apiRows };`,
       `console.log('API_RESULT', JSON.stringify(apiResult));`,
       `}`,
@@ -1588,13 +1588,13 @@ function _apiNode(config) {
   lines.push(`const apiRows = [];`, `let apiNextUrl = ${urlExpr};`);
   if (mode === "page") {
     lines.push(
-      `apiNextUrl = fsAddQueryParam(apiNextUrl, '${pageParam}', ${startPage});`,
+      `apiNextUrl = vqAddQueryParam(apiNextUrl, '${pageParam}', ${startPage});`,
     );
   }
   lines.push(
     `let apiResp, apiBody, apiPage = 0;`,
     `for (; apiPage < ${maxPages}; apiPage++) {`,
-    `  apiResp = await fsApiRequest(apiNextUrl, ${initExpr}, ${timeout});`,
+    `  apiResp = await vqApiRequest(apiNextUrl, ${initExpr}, ${timeout});`,
   );
   if (failOnHttp) {
     lines.push(
@@ -1606,23 +1606,23 @@ function _apiNode(config) {
     `  const apiText = await apiResp.text();`,
     `  apiBody = apiText;`,
     `  try { apiBody = JSON.parse(apiText); } catch {}`,
-    `  const apiPageRows = fsApiRows(apiBody, '${esc(rowsPath)}');`,
+    `  const apiPageRows = vqApiRows(apiBody, '${esc(rowsPath)}');`,
     `  apiRows.push(...apiPageRows);`,
     `  if (apiPageRows.length === 0) break; // an empty page is the exit condition, not just the count`,
   );
   if (mode === "cursor") {
     lines.push(
-      `  const apiCursor = fsDig(apiBody, '${cursorPath}');`,
+      `  const apiCursor = vqDig(apiBody, '${cursorPath}');`,
       `  if (apiCursor === undefined || apiCursor === null || apiCursor === '') break; // the source named no next cursor`,
-      `  apiNextUrl = fsAddQueryParam(${urlExpr}, '${cursorParam}', apiCursor);`,
+      `  apiNextUrl = vqAddQueryParam(${urlExpr}, '${cursorParam}', apiCursor);`,
     );
   } else if (mode === "page") {
     lines.push(
-      `  apiNextUrl = fsAddQueryParam(${urlExpr}, '${pageParam}', ${startPage} + (apiPage + 1) * ${pageStep});`,
+      `  apiNextUrl = vqAddQueryParam(${urlExpr}, '${pageParam}', ${startPage} + (apiPage + 1) * ${pageStep});`,
     );
   } else if (mode === "link") {
     lines.push(
-      `  const apiNextLink = fsLinkHeaderNext(apiResp.headers.get('link'), apiResp.url);`,
+      `  const apiNextLink = vqLinkHeaderNext(apiResp.headers.get('link'), apiResp.url);`,
       `  if (!apiNextLink) break; // no rel="next" in the Link header`,
       `  apiNextUrl = apiNextLink;`,
     );

@@ -1178,7 +1178,7 @@ function _buildSimplifiedDom() {
  *   simplifiedDom: string
  * }}
  */
-function fsSmartExtract(config = {}) {
+function vqSmartExtract(config = {}) {
   const threshold = config.confidenceThreshold ?? CONF.LAYER_ESCALATE;
   // A schema the worker resolved. Present only when the user asked for fields
   // of their own; the product path below is untouched without it.
@@ -1227,6 +1227,6 @@ function fsSmartExtract(config = {}) {
 }
 
 // Expose to window so injector.js can call it without module boundary
-window.__fsSmartExtract = fsSmartExtract;
+window.__fsSmartExtract = vqSmartExtract;
 
 // === END smart-extractor.js ===

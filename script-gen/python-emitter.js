@@ -3,8 +3,8 @@
  * @module python-emitter
  * @description Converts a pipeline JSON AST to Python 3.11 script
  *   using playwright (browser automation) + requests (HTTP).
- *   Credentials detected by pipeline-compiler.js are replaced with __FS_ENV__NAME__
- *   markers and resolved from the environment at run time by fs_env().
+ *   Credentials detected by pipeline-compiler.js are replaced with __VQ_ENV__NAME__
+ *   markers and resolved from the environment at run time by vq_env().
  *
  *   Design decision: We emit Python rather than Playwright-specific code because
  *   Python is the most common scripting language for automation. The output is
@@ -73,16 +73,16 @@ export function emitPython(pipeline) {
     "from urllib3.util.retry import Retry",
     "",
     "",
-    "def fs_env(s):",
+    "def vq_env(s):",
     '    """Resolve credential markers left by Verquill against the environment.',
     "",
     "    Credentials are not written into this script. Each one appears as",
-    "    __FS_ENV__NAME__ and is read from the environment variable NAME when the",
+    "    __VQ_ENV__NAME__ and is read from the environment variable NAME when the",
     "    script runs; a name that is not set resolves to an empty string.",
     '    """',
     "    if not isinstance(s, str):",
     "        return s",
-    '    return re.sub(r"__FS_ENV__([A-Z0-9_]+)__", lambda m: os.environ.get(m.group(1), ""), s)',
+    '    return re.sub(r"__VQ_ENV__([A-Z0-9_]+)__", lambda m: os.environ.get(m.group(1), ""), s)',
     "",
     "",
     "# ── Value transforms ─────────────────────────────────────────",
@@ -92,7 +92,7 @@ export function emitPython(pipeline) {
     "from urllib.parse import urljoin, urlparse, unquote",
     "",
     "",
-    "def fs_number(t):",
+    "def vq_number(t):",
     '    raw = str(t or "")',
     "    # Scientific notation first, and only where it is unambiguous. Found in",
     "    # a real scrape: scrapethissite.com reports Antarctica's area as",
@@ -127,14 +127,14 @@ export function emitPython(pipeline) {
     "    return int(n) if n.is_integer() else n",
     "",
     "",
-    "def fs_url(v, base):",
+    "def vq_url(v, base):",
     '    return urljoin(base, str(v or "").strip()) if v else v',
     "",
     "",
     "# Group and flags mean here exactly what they mean in the panel: 0 is the",
     "# whole match, an absent group is None rather than a quiet fall back to",
     "# another one, and only i/m/s are offered because JavaScript has to agree.",
-    'def fs_regex(v, p, flags="", group=None):',
+    'def vq_regex(v, p, flags="", group=None):',
     "    f = 0",
     '    for ch, bit in (("i", re.I), ("m", re.M), ("s", re.S)):',
     "        if ch in flags:",
@@ -150,14 +150,14 @@ export function emitPython(pipeline) {
     "    return m.group(0) if idx == 1 and not m.groups() else None",
     "",
     "",
-    "def fs_trim(v):",
+    "def vq_trim(v):",
     '    return re.sub(r"\\s+", " ", str(v or "")).strip()',
     "",
     "",
     "# Mirrors the in-page transform: tolerant of the URL-safe alphabet and of",
     "# missing padding, and None rather than a mangled string when the input was",
     "# never base64 — a plausible wrong answer is worse than an empty cell.",
-    "def fs_b64(v):",
+    "def vq_b64(v):",
     '    raw = str(v or "").strip().replace("-", "+").replace("_", "/")',
     '    if len(raw) < 4 or not re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", raw):',
     "        return None",
@@ -171,18 +171,18 @@ export function emitPython(pipeline) {
     "# Every row this run extracts, in order, so an EXPORT step has something",
     "# to write. EXTRACT still prints each row as it goes — that is what the",
     "# MCP runner reads off stdout — but a printed row is not a file.",
-    "fs_rows = []",
+    "vq_rows = []",
     "",
     "# DEDUPE. None until a DEDUPE step sets it, and from then on every row the",
     "# script collects is checked — the same gate the extension applies, for the",
     "# same reason: rows are written as they are read, so filtering afterwards",
     "# would mean unwriting.",
-    "fs_dedupe = None",
-    "fs_dropped = 0",
-    "fs_seen = {}",
+    "vq_dedupe = None",
+    "vq_dropped = 0",
+    "vq_seen = {}",
     "",
     "",
-    "def fs_key(row, fields):",
+    "def vq_key(row, fields):",
     "    names = fields if fields else sorted((row or {}).keys())",
     "    parts = []",
     "    for n in names:",
@@ -198,19 +198,19 @@ export function emitPython(pipeline) {
     '    return "\\u001f".join(parts)',
     "",
     "",
-    "def fs_collect(row):",
-    "    global fs_dropped",
-    "    if fs_dedupe:",
-    '        k = fs_key(row, fs_dedupe["fields"])',
-    "        if k in fs_seen:",
-    "            fs_dropped += 1",
+    "def vq_collect(row):",
+    "    global vq_dropped",
+    "    if vq_dedupe:",
+    '        k = vq_key(row, vq_dedupe["fields"])',
+    "        if k in vq_seen:",
+    "            vq_dropped += 1",
     "            return False",
-    "        fs_seen[k] = 1",
+    "        vq_seen[k] = 1",
     "        # Forget the oldest rather than grow without bound; a dict keeps",
     "        # insertion order, so the first key is the oldest.",
-    '        if len(fs_seen) > fs_dedupe["limit"]:',
-    "            del fs_seen[next(iter(fs_seen))]",
-    "    fs_rows.append(row)",
+    '        if len(vq_seen) > vq_dedupe["limit"]:',
+    "            del vq_seen[next(iter(vq_seen))]",
+    "    vq_rows.append(row)",
     "    print(json.dumps(row))",
     "    return True",
     "",
@@ -221,19 +221,19 @@ export function emitPython(pipeline) {
     "# is the empty string for a grid of images, on every row. The rule lives",
     "# in one place, as JavaScript, and both emitted scripts send the same text",
     "# into the page.",
-    `FS_READ_JS = """${EXTRACT_VALUE_JS}"""`,
-    `FS_PAGINATE_JS = """${PAGINATE_STATE_JS}"""`,
+    `VQ_READ_JS = """${EXTRACT_VALUE_JS}"""`,
+    `VQ_PAGINATE_JS = """${PAGINATE_STATE_JS}"""`,
     "",
     "",
-    "async def fs_read_el(el, f):",
-    "    return await el.evaluate(FS_READ_JS, f)",
+    "async def vq_read_el(el, f):",
+    "    return await el.evaluate(VQ_READ_JS, f)",
     "",
     "",
     "# Mirrors exporters/row-formatters.js. Columns are the union of every",
     "# row's keys in first-seen order: the first row's keys alone would silently",
     "# drop any column it happens not to have, which for scraped data is the",
     "# common case rather than an edge one.",
-    "def fs_cell(v):",
+    "def vq_cell(v):",
     "    if v is None:",
     '        return ""',
     "    if isinstance(v, bool):",
@@ -243,7 +243,7 @@ export function emitPython(pipeline) {
     "    return str(v)",
     "",
     "",
-    "def fs_headers(rows):",
+    "def vq_headers(rows):",
     "    out, seen = [], set()",
     "    for r in rows:",
     "        for k in (r or {}).keys():",
@@ -253,7 +253,7 @@ export function emitPython(pipeline) {
     "    return out",
     "",
     "",
-    "def fs_format_rows(rows, fmt):",
+    "def vq_format_rows(rows, fmt):",
     "    safe = rows or []",
     '    if fmt == "json":',
     "        return json.dumps(safe, indent=2)",
@@ -263,22 +263,22 @@ export function emitPython(pipeline) {
     '        return "".join(json.dumps(r, separators=(",", ":")) + "\\n" for r in safe)',
     "    if not safe:",
     '        return ""',
-    "    h = fs_headers(safe)",
+    "    h = vq_headers(safe)",
     '    if fmt == "csv":',
     "        buf = io.StringIO()",
     '        w = csv.writer(buf, lineterminator="\\r\\n")',
     "        w.writerow(h)",
     "        for r in safe:",
-    "            w.writerow([fs_cell((r or {}).get(k)) for k in h])",
+    "            w.writerow([vq_cell((r or {}).get(k)) for k in h])",
     "        return buf.getvalue()",
     '    if fmt == "tsv":',
-    '        clean = lambda v: re.sub(r"[\\t\\r\\n]", " ", fs_cell(v))',
+    '        clean = lambda v: re.sub(r"[\\t\\r\\n]", " ", vq_cell(v))',
     '        out = ["\\t".join(clean(k) for k in h)]',
     '        out += ["\\t".join(clean((r or {}).get(k)) for k in h) for r in safe]',
     '        return "\\n".join(out) + "\\n"',
     '    if fmt == "xml":',
     "        def esc(v):",
-    "            t = fs_cell(v)",
+    "            t = vq_cell(v)",
     '            for a, b in (("&", "&amp;"), ("<", "&lt;"), (">", "&gt;"), (chr(34), "&quot;"), ("\'", "&apos;")):',
     "                t = t.replace(a, b)",
     "            return t",
@@ -294,7 +294,7 @@ export function emitPython(pipeline) {
     '        out.append("</rows>")',
     '        return "\\n".join(out) + "\\n"',
     '    if fmt == "markdown":',
-    '        md = lambda v: re.sub(r"\\r?\\n", " ", fs_cell(v).replace("|", "\\\\|"))',
+    '        md = lambda v: re.sub(r"\\r?\\n", " ", vq_cell(v).replace("|", "\\\\|"))',
     '        out = ["| " + " | ".join(md(k) for k in h) + " |",',
     '               "| " + " | ".join("---" for _ in h) + " |"]',
     '        out += ["| " + " | ".join(md((r or {}).get(k)) for k in h) + " |" for r in safe]',
@@ -310,11 +310,11 @@ export function emitPython(pipeline) {
     "# extension's _stepAssert and _stepIfElse read, and both read textContent.",
     "# inner_text drops anything CSS has hidden, so an assertion could pass in",
     "# the panel and fail in the script for a reason neither would explain.",
-    "async def fs_text(loc):",
-    "    return fs_trim(await loc.first.text_content()) if await loc.count() > 0 else None",
+    "async def vq_text(loc):",
+    "    return vq_trim(await loc.first.text_content()) if await loc.count() > 0 else None",
     "",
     "",
-    "async def fs_attr(loc, a):",
+    "async def vq_attr(loc, a):",
     "    return await loc.first.get_attribute(a) if await loc.count() > 0 else None",
     "",
     "",
@@ -322,19 +322,19 @@ export function emitPython(pipeline) {
     "# An allowlist, mirroring the extension: a filename built from page content",
     "# must not be able to name a directory, so both separators fall outside it",
     '# and ".." reduces to nothing.',
-    "def fs_safe_seg(v):",
+    "def vq_safe_seg(v):",
     '    s = re.sub(r"[^\\w .()\\[\\]{}@#&+,;\'!~=%-]", "_", str(v or ""), flags=re.UNICODE)',
     '    return re.sub(r"[.\\s]+$", "", re.sub(r"^[.\\s]+", "", s))[:100]',
     "",
     "",
-    "def fs_file_name(url, index):",
+    "def vq_file_name(url, index):",
     '    name = unquote(urlparse(url).path.rstrip("/").split("/")[-1]) if url else ""',
     '    return name or "file-{}".format(index)',
     "# ── API step: pagination and retry (K-24, K-25) ────────────────",
     "# A dotted path into a response body — mirrors the worker's _resolvePath,",
     "# so a rowsPath or cursorPath configured in the panel means the same thing",
     "# here. A miss anywhere along the path is None, not an exception.",
-    "def fs_dig(body, path):",
+    "def vq_dig(body, path):",
     "    val = body",
     "    for part in str(path or '').split('.'):",
     "        if val is None:",
@@ -353,12 +353,12 @@ export function emitPython(pipeline) {
     "# rowsPath empty means the body itself, if it is an array — the same rule",
     "# the worker's rowsPath uses so a single call and a paginated one shape",
     "# their rows identically.",
-    "def fs_api_rows(body, rows_path):",
-    "    target = fs_dig(body, rows_path) if rows_path else body",
+    "def vq_api_rows(body, rows_path):",
+    "    target = vq_dig(body, rows_path) if rows_path else body",
     "    return target if isinstance(target, list) else []",
     "",
     "",
-    "def fs_add_query_param(url, key, value):",
+    "def vq_add_query_param(url, key, value):",
     "    from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode",
     "    parts = urlsplit(url)",
     "    q = dict(parse_qsl(parts.query))",
@@ -366,7 +366,7 @@ export function emitPython(pipeline) {
     "    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(q), parts.fragment))",
     "",
     "",
-    "def fs_api_session():",
+    "def vq_api_session():",
     "    # 429/5xx get retried in place, honouring Retry-After when the server",
     "    # names one — urllib3 parses both the seconds and the HTTP-date form —",
     "    # and capped so a chatty server cannot stall the script for an hour.",
@@ -387,19 +387,19 @@ export function emitPython(pipeline) {
     "",
     "# ── Proxy (set via environment variables) ────────────────────",
     "PROXY = {",
-    '    "server":   os.environ.get("FS_PROXY_HOST", ""),',
-    '    "username": os.environ.get("FS_PROXY_USER", ""),',
-    '    "password": os.environ.get("FS_PROXY_PASS", ""),',
-    '} if os.environ.get("FS_PROXY_HOST") else None',
+    '    "server":   os.environ.get("VQ_PROXY_HOST", ""),',
+    '    "username": os.environ.get("VQ_PROXY_USER", ""),',
+    '    "password": os.environ.get("VQ_PROXY_PASS", ""),',
+    '} if os.environ.get("VQ_PROXY_HOST") else None',
     "",
     "",
     "async def run_pipeline():",
     "    async with async_playwright() as pw:",
-    "        # FS_BROWSER_PATH names a browser to use instead of the one",
+    "        # VQ_BROWSER_PATH names a browser to use instead of the one",
     "        # Playwright downloaded: headless Playwright reaches for a",
     "        # separate headless-shell build by default, and a machine with",
     "        # full Chromium but not that variant fails at launch.",
-    '        _exe = os.environ.get("FS_BROWSER_PATH")',
+    '        _exe = os.environ.get("VQ_BROWSER_PATH")',
     "        browser = await pw.chromium.launch(",
     '            proxy=PROXY, **({"executable_path": _exe} if _exe else {})',
     "        )",
@@ -454,7 +454,7 @@ function _conditionPy(condition, config) {
   const fromSelector = config.compareTo === "selector";
   const str = fromSelector ? "_rhs" : `"${value}"`;
   const numRhs = fromSelector
-    ? "fs_number(_rhs)"
+    ? "vq_number(_rhs)"
     : Number.isFinite(num)
       ? String(num)
       : null;
@@ -462,7 +462,7 @@ function _conditionPy(condition, config) {
   const numeric = (op) =>
     numRhs === null
       ? null
-      : `(lambda a, b: a is not None and b is not None and a ${op} b)(fs_number(await fs_text(_loc)), ${numRhs})`;
+      : `(lambda a, b: a is not None and b is not None and a ${op} b)(vq_number(await vq_text(_loc)), ${numRhs})`;
 
   switch (condition) {
     case "exists":
@@ -470,31 +470,31 @@ function _conditionPy(condition, config) {
     case "not-exists":
       return `await _loc.count() == 0`;
     case "is-empty":
-      return `(lambda t: t is None or t == "")(await fs_text(_loc))`;
+      return `(lambda t: t is None or t == "")(await vq_text(_loc))`;
     case "not-empty":
-      return `(lambda t: t is not None and t != "")(await fs_text(_loc))`;
+      return `(lambda t: t is not None and t != "")(await vq_text(_loc))`;
     case "text-equals":
-      return `await fs_text(_loc) == fs_trim(${str})`;
+      return `await vq_text(_loc) == vq_trim(${str})`;
     case "text-contains":
-      return `(lambda t: t is not None and fs_trim(${str}) in t)(await fs_text(_loc))`;
+      return `(lambda t: t is not None and vq_trim(${str}) in t)(await vq_text(_loc))`;
     case "text-matches": {
       // A pattern read off the page cannot be checked here; a bad one raises
       // at run time, which is what the extension does with it too.
       if (fromSelector) {
-        return `(lambda t: t is not None and re.search(_rhs, t) is not None)(await fs_text(_loc))`;
+        return `(lambda t: t is not None and re.search(_rhs, t) is not None)(await vq_text(_loc))`;
       }
       const raw = String(config.value ?? "");
       // A raw literal cannot end in a backslash, and such a pattern is not
       // valid anyway — refuse rather than trim it into something else.
       if (!isValidRegex(raw) || /\\$/.test(raw)) return null;
-      return `(lambda t: t is not None and re.search(r"${raw.replace(/"/g, '\\"')}", t) is not None)(await fs_text(_loc))`;
+      return `(lambda t: t is not None and re.search(r"${raw.replace(/"/g, '\\"')}", t) is not None)(await vq_text(_loc))`;
     }
     case "attr-equals":
-      return `(lambda a: a is not None and a.strip() == str(${str}).strip())(await fs_attr(_loc, "${attr}"))`;
+      return `(lambda a: a is not None and a.strip() == str(${str}).strip())(await vq_attr(_loc, "${attr}"))`;
     case "attr-contains":
-      return `(lambda a: a is not None and ${str} in a)(await fs_attr(_loc, "${attr}"))`;
+      return `(lambda a: a is not None and ${str} in a)(await vq_attr(_loc, "${attr}"))`;
     case "attr-exists":
-      return `await fs_attr(_loc, "${attr}") is not None`;
+      return `await vq_attr(_loc, "${attr}") is not None`;
     case "number-equals":
       return numeric("==");
     case "number-gt":
@@ -650,9 +650,9 @@ function _assertionPy(assertion, config) {
     case "count-at-most":
       return counted("<=");
     case "text-contains":
-      return `_text is not None and fs_trim("${value}") in _text`;
+      return `_text is not None and vq_trim("${value}") in _text`;
     case "text-equals":
-      return `_text is not None and _text == fs_trim("${value}")`;
+      return `_text is not None and _text == vq_trim("${value}")`;
     default:
       return null;
   }
@@ -850,7 +850,7 @@ function _emitStepBody(step) {
         `# ASSERT: ${assertion} - ${sel}`,
         `_loc = ${_pyLoc(sel)}`,
         `_count = await _loc.count()`,
-        `_text = await fs_text(_loc)`,
+        `_text = await vq_text(_loc)`,
         `if not (${test}):`,
         config.optional === true
           ? `    print("ASSERT (${assertion}) failed on ${sel} - optional, continuing")`
@@ -943,7 +943,7 @@ function _emitStepBody(step) {
           `    await page.wait_for_load_state("networkidle")`,
           // Nothing to probe in this mode, so a run asked for 20 pages of a
           // 5-page site fetched 15 empty ones.
-          `    _rows_before = len(fs_rows)`,
+          `    _rows_before = len(vq_rows)`,
         );
       } else {
         lines.push(`for i in range(${config.max ?? 10}):`);
@@ -953,13 +953,13 @@ function _emitStepBody(step) {
         // times without ever clicking Next, so the script scraped page one N
         // times over.
         // Then it asked only "does it exist and is it enabled", which misses
-        // every other way a paginator says "last page". FS_PAGINATE_JS is the
+        // every other way a paginator says "last page". VQ_PAGINATE_JS is the
         // extension's own reasons, sent into the page from the same source the
         // Node script uses.
         lines.push(
           `    if i > 0:`,
           `        _next = page.locator("${_escStr(_sel(config.selector))}").first`,
-          `        _st = await _next.evaluate(FS_PAGINATE_JS) if await _next.count() else None`,
+          `        _st = await _next.evaluate(VQ_PAGINATE_JS) if await _next.count() else None`,
           `        if not _st or _st["dead"]:`,
           `            print("Pagination: stopped after {} page(s) — {}".format(i, _st["dead"] if _st else "no Next control on the page"), file=sys.stderr)`,
           `            break`,
@@ -993,7 +993,7 @@ function _emitStepBody(step) {
         // The same rule the run applies: only after a page that produced
         // something, so a first page that is genuinely empty is not cut off.
         lines.push(
-          `    if _rows_before > 0 and len(fs_rows) == _rows_before:`,
+          `    if _rows_before > 0 and len(vq_rows) == _rows_before:`,
           `        print("Pagination: stopped after {} page(s) — that page produced no rows.".format(i + 1), file=sys.stderr)`,
           `        break`,
         );
@@ -1023,8 +1023,8 @@ function _emitStepBody(step) {
         lines.push(
           `_loc2 = ${_pyLoc(_escStr(_sel(config.valueSelector ?? "")))}`,
           config.attr
-            ? `_rhs = await fs_attr(_loc2, "${_escStr(String(config.attr))}")`
-            : `_rhs = await fs_text(_loc2)`,
+            ? `_rhs = await vq_attr(_loc2, "${_escStr(String(config.attr))}")`
+            : `_rhs = await vq_text(_loc2)`,
           // Nothing matched the other side, so there is nothing to compare
           // with and the else branch is taken. Without this guard an empty
           // left side would "equal" a missing right side.
@@ -1230,7 +1230,7 @@ function _emitFill(config) {
   for (const field of fields) {
     if (!field?.selector) continue;
     lines.push(
-      `await ${_pyVerb(_escStr(_sel(field.selector)), `fill("${_escStr(_sel(field.selector))}", fs_env("${_escStr(field.value ?? "")}"))`, `fill(fs_env("${_escStr(field.value ?? "")}"))`)}`,
+      `await ${_pyVerb(_escStr(_sel(field.selector)), `fill("${_escStr(_sel(field.selector))}", vq_env("${_escStr(field.value ?? "")}"))`, `fill(vq_env("${_escStr(field.value ?? "")}"))`)}`,
     );
   }
   if (config.submitSelector) {
@@ -1250,14 +1250,14 @@ function _emitFill(config) {
 function _transformPy(expr, field) {
   let out = expr;
   for (const name of field.transform ?? []) {
-    if (name === "number") out = `fs_number(${out})`;
-    else if (name === "trim") out = `fs_trim(${out})`;
-    else if (name === "url") out = `fs_url(${out}, page.url)`;
+    if (name === "number") out = `vq_number(${out})`;
+    else if (name === "trim") out = `vq_trim(${out})`;
+    else if (name === "url") out = `vq_url(${out}, page.url)`;
     else if (name === "lower") out = `str(${out} or "").lower()`;
     else if (name === "upper") out = `str(${out} or "").upper()`;
     // Same contract as the in-page transform: not-base64 becomes None rather
     // than a mangled string, so a script and a run agree on what failed.
-    else if (name === "base64") out = `fs_b64(${out})`;
+    else if (name === "base64") out = `vq_b64(${out})`;
     else if (name === "regex") {
       const raw = String(field.regexPattern ?? "");
       const flags = normalizeRegexFlags(field.regexFlags);
@@ -1275,7 +1275,7 @@ function _transformPy(expr, field) {
             ? `, "${flags}"`
             : ""
           : `, "${flags}", ${group}`;
-      out = `fs_regex(${out}, r"${raw.replace(/"/g, '\\"')}"${extra})`;
+      out = `vq_regex(${out}, r"${raw.replace(/"/g, '\\"')}"${extra})`;
     }
   }
   return out;
@@ -1323,7 +1323,7 @@ function _emitExtract(config) {
       attribute: attribute ?? "",
       countSelector: countSelector ?? "",
     });
-    const expr = _transformPy(`await fs_read_el(_el, ${spec})`, field);
+    const expr = _transformPy(`await vq_read_el(_el, ${spec})`, field);
     if (expr === null) {
       lines.push(
         `# INVALID: field "${name}" has a pattern this script cannot carry.`,
@@ -1354,7 +1354,7 @@ function _emitExtract(config) {
     `    row = {}`,
     `    for _k, _v in _cols.items():`,
     `        row[_k] = _v[0] if len(_v) == 1 else (_v[_i] if _i < len(_v) else None)`,
-    `    fs_collect(row)`,
+    `    vq_collect(row)`,
     "",
   );
   return lines;
@@ -1363,7 +1363,7 @@ function _emitExtract(config) {
 function _emitFormFill(config) {
   const lines = [
     "# FORM_FILL — read data from file",
-    'DATA_FILE = os.environ.get("FS_DATA_FILE", "data.csv")',
+    'DATA_FILE = os.environ.get("VQ_DATA_FILE", "data.csv")',
     'with open(DATA_FILE, newline="", encoding="utf-8") as f:',
     "    reader = csv.DictReader(f)",
     "    for row in reader:",
@@ -1430,9 +1430,9 @@ function _emitDownload(config) {
       .join(", ");
   const pathExpr = segments.length
     ? segments
-        .map((parts) => `fs_safe_seg("".join([${pieces(parts)}]))`)
+        .map((parts) => `vq_safe_seg("".join([${pieces(parts)}]))`)
         .join(", ")
-    : `fs_safe_seg(_name)`;
+    : `vq_safe_seg(_name)`;
 
   const literal = String(config.url ?? "").trim();
   const max = Number(config.max) > 0 ? Number(config.max) : 25;
@@ -1463,7 +1463,7 @@ function _emitDownload(config) {
     `        _failed += 1`,
     `        print("DOWNLOAD_FILE: skipped {} — only http(s) URLs are fetched here".format(_u[:120]))`,
     `        continue`,
-    `    _name = fs_file_name(_u, _i)`,
+    `    _name = vq_file_name(_u, _i)`,
     `    _stem, _, _ext = _name.rpartition(".")`,
     `    if not _stem:`,
     `        _stem, _ext = _name, ""`,
@@ -1508,23 +1508,23 @@ function _emitDedupe(config) {
   const limit = Number(config.limit) > 0 ? Number(config.limit) : 100000;
   const lines = [
     `# DEDUPE: ${fields.length ? fields.join(", ") : "every field"}`,
-    `fs_dedupe = {"fields": ${JSON.stringify(fields)}, "limit": ${limit}}`,
+    `vq_dedupe = {"fields": ${JSON.stringify(fields)}, "limit": ${limit}}`,
   ];
   if (config.scope === "forever") {
     lines.push(
-      `_seen_file = os.environ.get("FS_SEEN_FILE", ".fs-seen.json")`,
+      `_seen_file = os.environ.get("VQ_SEEN_FILE", ".vq-seen.json")`,
       `if os.path.exists(_seen_file):`,
       `    try:`,
       `        with open(_seen_file, encoding="utf-8") as _fh:`,
       `            for _k in json.load(_fh):`,
-      `                fs_seen[_k] = 1`,
+      `                vq_seen[_k] = 1`,
       `    except Exception as _err:`,
       `        print("DEDUPE: could not read {} ({}); starting fresh.".format(_seen_file, _err), file=sys.stderr)`,
       `@atexit.register`,
       `def _fs_save_seen():`,
       `    try:`,
       `        with open(_seen_file, "w", encoding="utf-8") as _fh:`,
-      `            json.dump(list(fs_seen.keys()), _fh)`,
+      `            json.dump(list(vq_seen.keys()), _fh)`,
       `    except Exception as _err:`,
       `        print("DEDUPE: could not save {} ({}).".format(_seen_file, _err), file=sys.stderr)`,
     );
@@ -1558,15 +1558,15 @@ function _emitExport(config) {
   const stem = config.append
     ? (config.dataset || "dataset").replace(/[^\w. -]/g, "_")
     : "export";
-  const out = `_out = os.environ.get("FS_OUT_FILE", "${stem}.${FORMAT_EXT[fmt]}")`;
+  const out = `_out = os.environ.get("VQ_OUT_FILE", "${stem}.${FORMAT_EXT[fmt]}")`;
 
   if (!config.append) {
     return [
       `# EXPORT → ${fmt}`,
       out,
       `with open(_out, "w", encoding="utf-8", newline="") as _fh:`,
-      `    _fh.write(fs_format_rows(fs_rows, "${fmt}"))`,
-      `print("Verquill: wrote {} row(s) to {}{}".format(len(fs_rows), _out, " ({} duplicate(s) dropped)".format(fs_dropped) if fs_dropped else ""), file=sys.stderr)`,
+      `    _fh.write(vq_format_rows(vq_rows, "${fmt}"))`,
+      `print("Verquill: wrote {} row(s) to {}{}".format(len(vq_rows), _out, " ({} duplicate(s) dropped)".format(vq_dropped) if vq_dropped else ""), file=sys.stderr)`,
       "",
     ];
   }
@@ -1574,7 +1574,7 @@ function _emitExport(config) {
   const lines = [
     `# EXPORT → ${fmt}, added to whatever is already in the file`,
     out,
-    `_text = fs_format_rows(fs_rows, "${fmt}")`,
+    `_text = vq_format_rows(vq_rows, "${fmt}")`,
     `_had = os.path.exists(_out) and os.path.getsize(_out) > 0`,
   ];
   if (fmt === "jsonl") {
@@ -1604,14 +1604,14 @@ function _emitExport(config) {
     );
   }
   lines.push(
-    `print("Verquill: added {} row(s) to {}{}".format(len(fs_rows), _out, " ({} duplicate(s) dropped)".format(fs_dropped) if fs_dropped else ""), file=sys.stderr)`,
+    `print("Verquill: added {} row(s) to {}{}".format(len(vq_rows), _out, " ({} duplicate(s) dropped)".format(vq_dropped) if vq_dropped else ""), file=sys.stderr)`,
     "",
   );
   return lines;
 }
 
 /**
- * One API step. `fs_api_session()` carries the 429/5xx retry (K-24) for every
+ * One API step. `vq_api_session()` carries the 429/5xx retry (K-24) for every
  * request it makes, paginated or not. Pagination (K-25) is only emitted when
  * it can actually stop on its own — a cursor mode with nowhere to read the
  * cursor from, or any pagination with no rowsPath to say what an empty page
@@ -1656,15 +1656,15 @@ function _emitApi(config) {
     ];
   }
 
-  const dataExpr = `fs_env("""${body}""") if """${body}""" else None`;
+  const dataExpr = `vq_env("""${body}""") if """${body}""" else None`;
   const lines = [
     "# API",
     `api_headers = {}`,
     `try:`,
-    `    api_headers = json.loads(fs_env("""${headers}""")) if """${headers}""".strip() else {}`,
+    `    api_headers = json.loads(vq_env("""${headers}""")) if """${headers}""".strip() else {}`,
     `except Exception:`,
     `    api_headers = {}`,
-    `api_session = fs_api_session()`,
+    `api_session = vq_api_session()`,
   ];
 
   if (mode === "none") {
@@ -1677,7 +1677,7 @@ function _emitApi(config) {
       "    api_body = api_resp.json()",
       "except Exception:",
       "    api_body = api_resp.text",
-      `api_rows = fs_api_rows(api_body, "${_escStr(rowsPath)}")` +
+      `api_rows = vq_api_rows(api_body, "${_escStr(rowsPath)}")` +
         (rowsPath ? "" : "  # no rowsPath configured"),
       'api_result = {"ok": api_resp.ok, "status": api_resp.status_code, "body": api_body, "rows": api_rows}',
       'print("API_RESULT", json.dumps(api_result))',
@@ -1699,7 +1699,7 @@ function _emitApi(config) {
   lines.push(`api_rows = []`, `api_next_url = "${url}"`);
   if (mode === "page") {
     lines.push(
-      `api_next_url = fs_add_query_param(api_next_url, "${pageParam}", ${startPage})`,
+      `api_next_url = vq_add_query_param(api_next_url, "${pageParam}", ${startPage})`,
     );
   }
   lines.push(
@@ -1719,17 +1719,17 @@ function _emitApi(config) {
     "        api_body = api_resp.json()",
     "    except Exception:",
     "        api_body = api_resp.text",
-    `    api_page_rows = fs_api_rows(api_body, "${_escStr(rowsPath)}")`,
+    `    api_page_rows = vq_api_rows(api_body, "${_escStr(rowsPath)}")`,
     "    api_rows.extend(api_page_rows)",
     "    if not api_page_rows:",
     "        break  # an empty page is the exit condition, not just the count",
   );
   if (mode === "cursor") {
     lines.push(
-      `    api_cursor = fs_dig(api_body, "${cursorPath}")`,
+      `    api_cursor = vq_dig(api_body, "${cursorPath}")`,
       "    if not api_cursor:",
       "        break  # the source named no next cursor",
-      `    api_next_url = fs_add_query_param("${url}", "${cursorParam}", api_cursor)`,
+      `    api_next_url = vq_add_query_param("${url}", "${cursorParam}", api_cursor)`,
     );
   } else if (mode === "page") {
     const pageStep =
@@ -1738,7 +1738,7 @@ function _emitApi(config) {
         ? Number(pagination.pageStep)
         : 1;
     lines.push(
-      `    api_next_url = fs_add_query_param("${url}", "${pageParam}", ${startPage} + (_api_page + 1) * ${pageStep})`,
+      `    api_next_url = vq_add_query_param("${url}", "${pageParam}", ${startPage} + (_api_page + 1) * ${pageStep})`,
     );
   } else if (mode === "link") {
     lines.push(

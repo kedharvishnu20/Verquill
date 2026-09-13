@@ -417,7 +417,7 @@ script ran and quietly did less than the pipeline.
 
 Python or Node — pick the language in the toolbar next to the button.
 
-**Credentials** are replaced with `__FS_ENV__NAME__` markers that both generated
+**Credentials** are replaced with `__VQ_ENV__NAME__` markers that both generated
 scripts resolve from the environment at run time, so nothing is written into the
 file. Detection is by config key name, by HTTP header name (`Authorization`,
 `X-API-Key`, `Cookie`…), and by password-shaped selectors. A password typed into

@@ -377,7 +377,7 @@ On `install`:
 
 ### 7.4 Heartbeat lifecycle
 
-`_startHeartbeat()` creates alarm `fs_sw_heartbeat` roughly every 20 seconds.
+`_startHeartbeat()` creates alarm `vq_sw_heartbeat` roughly every 20 seconds.
 
 Heartbeat listener:
 
@@ -409,7 +409,7 @@ Flow:
 2. Detect whether any step is `API_SNIFFER`.
 3. Build `runId`.
 4. Create `runState` and store it in `_runStates`.
-5. Persist `fs_run_log` in `chrome.storage.local`.
+5. Persist `vq_run_log` in `chrome.storage.local`.
 6. Run `runEthicsGates(...)`.
 7. On hard block, delete run state and throw `EthicsBlock`.
 8. On success, log warnings and start `_executePipeline(...)` asynchronously.
@@ -520,7 +520,7 @@ Source: [content/injector.js](../content/injector.js)
 
 ### 8.2 Core constants and state
 
-#### `FS_ORIGIN`
+#### `VQ_ORIGIN`
 
 - extension origin base used by the content runtime
 
@@ -548,11 +548,11 @@ Constant map of content-event names.
 
 #### In-page `window.postMessage`
 
-Incoming messages with `type` starting `FS_` are handled.
+Incoming messages with `type` starting `VQ_` are handled.
 
 Special case:
 
-- `FS_NETWORK_SNIFF` is forwarded to the service worker as `network:sniff`
+- `VQ_NETWORK_SNIFF` is forwarded to the service worker as `network:sniff`
 
 #### `chrome.runtime.onMessage`
 
@@ -718,7 +718,7 @@ Source: [ethics/robots-parser.js](../ethics/robots-parser.js)
 Key state and behavior:
 
 - `CACHE_TTL_MS = 15 minutes`
-- `FS_USER_AGENT = 'Verquill'`
+- `VQ_USER_AGENT = 'Verquill'`
 - `_cache` map stores parsed robots content
 
 Behavior:

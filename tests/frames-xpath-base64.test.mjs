@@ -103,7 +103,7 @@ test("a missing frame falls back rather than failing", () => {
 test("the pickers in the other frames are disarmed", async () => {
   // Every frame arms one; only the clicked frame settles on its own, so the
   // rest are left showing a crosshair that eats the next click.
-  assert.match(injector, /PICK_CANCEL: "FS_PICK_CANCEL"/);
+  assert.match(injector, /PICK_CANCEL: "VQ_PICK_CANCEL"/);
   assert.match(injector, /case CE\.PICK_CANCEL:/);
   assert.match(injector, /_pickerCancel = \(\) => finish\(null\)/);
   assert.match(builder, /function _cancelPickersElsewhere/);
@@ -185,13 +185,13 @@ test("both emitters carry the base64 transform", async () => {
   const py = await read("script-gen/python-emitter.js");
   const node = await read("script-gen/node-emitter.js");
   assert.match(py, /name === "base64"/);
-  assert.match(py, /def fs_b64/);
+  assert.match(py, /def vq_b64/);
   assert.match(
     py,
     /import asyncio, os, re, sys, io, json, csv, time, random, base64, atexit/,
   );
   assert.match(node, /name === "base64"/);
-  assert.match(node, /const fsB64 =/);
+  assert.match(node, /const vqB64 =/);
 });
 
 test("the emitted decoders agree with the in-page one", async () => {

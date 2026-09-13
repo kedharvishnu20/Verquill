@@ -16,7 +16,7 @@ import { logger } from "../utils/logger.js";
 
 const MODULE = "robots-parser";
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
-const FS_USER_AGENT = "Verquill";
+const VQ_USER_AGENT = "Verquill";
 
 /** @type {Map<string, { rules: ParsedRobots, fetchedAt: number }>} */
 const _cache = new Map();
@@ -144,7 +144,7 @@ function _pathMatches(rulePattern, path) {
  * @param {string} [userAgent='Verquill']
  * @returns {boolean} true = allowed
  */
-export function isAllowedByRules(parsed, path, userAgent = FS_USER_AGENT) {
+export function isAllowedByRules(parsed, path, userAgent = VQ_USER_AGENT) {
   const ua = userAgent.toLowerCase();
 
   // Collect applicable rules: specific UA first, then wildcard '*'
@@ -223,7 +223,7 @@ export async function fetchRobots(origin) {
  * @param {string} [userAgent]
  * @returns {Promise<{ allowed: boolean, crawlDelay: number, fetchError: boolean }>}
  */
-export async function checkRobots(origin, path, userAgent = FS_USER_AGENT) {
+export async function checkRobots(origin, path, userAgent = VQ_USER_AGENT) {
   const parsed = await fetchRobots(origin);
   if (!parsed) {
     // Fetch error — be conservative, warn but don't block

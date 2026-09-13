@@ -21,7 +21,7 @@ import { emitPython } from "../script-gen/python-emitter.js";
 import { formatRows } from "../exporters/row-formatters.js";
 import { pythonBin, skipWithoutPython } from "./helpers/python.mjs";
 
-const dir = mkdtempSync(join(tmpdir(), "fs-parity-"));
+const dir = mkdtempSync(join(tmpdir(), "vq-parity-"));
 
 const pipeline = (steps) => ({
   name: "t",
@@ -56,7 +56,7 @@ async function runtime() {
   writeFileSync(
     harness,
     helpers.replace(/^import .*$/gm, "") +
-      "\nexport { fsFormatRows, fsNumber, fsB64, fsCell, fsHeaders };\n",
+      "\nexport { vqFormatRows, vqNumber, vqB64, vqCell, vqHeaders };\n",
   );
   // An absolute Windows path is not a URL: import("C:\\...") is read as the
   // scheme "c:" and rejected with ERR_UNSUPPORTED_ESM_URL_SCHEME. On POSIX the
@@ -94,7 +94,16 @@ function runPy(body) {
       /^(import |from )(?!(?:asyncio|os|re|sys|io|json|csv|time|random|base64|urllib)\b).*$/gm,
       "",
     ) +
-      "\n" +
+      // Python opens stdout in text mode, so on Windows every \n a probe
+      // writes leaves as \r\n — and csv, which already emits \r\n, leaves as
+      // \r\r\n. Six byte-for-byte tests failed there for that reason alone,
+      // while the emitted script itself was correct: it opens its output file
+      // with newline="" and always did. The bytes were being mangled on the
+      // way out of the probe, not on the way into a file.
+      //
+      // Reconfiguring once here rather than in each probe body, so a new
+      // probe cannot forget it and be wrong only on Windows.
+      '\nimport sys\nsys.stdout.reconfigure(newline="")\n' +
       body,
   );
   const python = pythonBin();
@@ -108,13 +117,13 @@ const ROWS = [
   { name: "", price: 0, note: null },
 ];
 
-// ── FS-07: an EXPORT step writes a file ──────────────────────────────────────
+// ── VQ-07: an EXPORT step writes a file ──────────────────────────────────────
 
 test("EXPORT emits code that writes a file, in both languages", () => {
   // It used to emit "// EXPORT → csv (implement write here)": a script that
   // runs, exits 0, and leaves nothing on disk.
-  assert.match(js, /fs\.writeFileSync\(_out, fsFormatRows\(fsRows, 'csv'\)/);
-  assert.match(py, /_fh\.write\(fs_format_rows\(fs_rows, "csv"\)\)/);
+  assert.match(js, /fs\.writeFileSync\(_out, vqFormatRows\(vqRows, 'csv'\)/);
+  assert.match(py, /_fh\.write\(vq_format_rows\(vq_rows, "csv"\)\)/);
   assert.ok(!/implement write here/.test(js));
   assert.ok(!/Write to file here/.test(py));
 });
@@ -137,19 +146,19 @@ for (const fmt of ["csv", "json", "jsonl", "tsv", "xml", "markdown"]) {
     const python = skipWithoutPython(t);
     if (!python) return;
     const expected = formatRows(ROWS, fmt);
-    assert.equal((await runtime()).fsFormatRows(ROWS, fmt), expected);
+    assert.equal((await runtime()).vqFormatRows(ROWS, fmt), expected);
 
     // json.loads rather than a Python literal: JSON's null is not None, and
     // the rows are the same bytes both languages are being asked about.
     const printed = runPy(
       `rows = json.loads(${JSON.stringify(JSON.stringify(ROWS))})\n` +
-        `sys.stdout.write(fs_format_rows(rows, "${fmt}"))`,
+        `sys.stdout.write(vq_format_rows(rows, "${fmt}"))`,
     );
     assert.equal(printed, expected);
   });
 }
 
-// ── FS-06: a bulk EXTRACT is more than one row ───────────────────────────────
+// ── VQ-06: a bulk EXTRACT is more than one row ───────────────────────────────
 
 test("EXTRACT reads every match, not the first", () => {
   // page.innerText(sel) and .first are one element. A pipeline extracting a
@@ -157,9 +166,9 @@ test("EXTRACT reads every match, not the first", () => {
   // nothing about the other twenty-nine.
   assert.ok(!/page\.innerText\('\.t'\)/.test(js));
   assert.match(js, /\.all\(\)\)\.map\(async _el =>/);
-  assert.match(js, /fsRows\.push\(row\)/);
+  assert.match(js, /vqRows\.push\(row\)/);
   assert.match(py, /for _el in await page\.locator\("\.t"\)\.all\(\)/);
-  assert.match(py, /fs_rows\.append\(row\)/);
+  assert.match(py, /vq_rows\.append\(row\)/);
 });
 
 test("the row assembly rules are the extension's", () => {
@@ -180,11 +189,11 @@ test("an element is read the way the extension reads it", () => {
   // An <img> answers with its src and a bare <a> with its href. innerText()
   // for those is the empty string — a grid of images exported as empty cells.
   assert.match(js, /tag === 'img'\) return node\.src/);
-  assert.match(py, /FS_READ_JS = """/);
-  assert.match(py, /await el\.evaluate\(FS_READ_JS, f\)/);
+  assert.match(py, /VQ_READ_JS = """/);
+  assert.match(py, /await el\.evaluate\(VQ_READ_JS, f\)/);
 });
 
-// ── FS-09: scientific notation ───────────────────────────────────────────────
+// ── VQ-09: scientific notation ───────────────────────────────────────────────
 
 test("a number in scientific notation survives both scripts", async (t) => {
   // runPy spawns an interpreter, so these skip where there is none rather than
@@ -195,12 +204,12 @@ test("a number in scientific notation survives both scripts", async (t) => {
   // scrapethissite.com reports Antarctica's area as "1.4E7". The general
   // numeric pattern stopped at the E and turned fourteen million into 1.4 — a
   // wrong number that looks entirely plausible in a column of areas.
-  assert.equal((await runtime()).fsNumber("1.4E7"), 14000000);
-  assert.equal(runPy(`print(fs_number("1.4E7"))`).trim(), "14000000");
+  assert.equal((await runtime()).vqNumber("1.4E7"), 14000000);
+  assert.equal(runPy(`print(vq_number("1.4E7"))`).trim(), "14000000");
 
   // And the things that are not exponents still are not.
-  assert.equal((await runtime()).fsNumber("3 EUR"), 3);
-  assert.equal(runPy(`print(fs_number("3 EUR"))`).trim(), "3");
+  assert.equal((await runtime()).vqNumber("3 EUR"), 3);
+  assert.equal(runPy(`print(vq_number("3 EUR"))`).trim(), "3");
 });
 
 test("a non-breaking space between thousands is not a separator", async (t) => {
@@ -209,11 +218,11 @@ test("a non-breaking space between thousands is not a separator", async (t) => {
   // the runner that gates merges.
   const python = skipWithoutPython(t);
   if (!python) return;
-  assert.equal((await runtime()).fsNumber("1 234,56"), 1234.56);
-  assert.equal(runPy(`print(fs_number("1\\u00a0234,56"))`).trim(), "1234.56");
+  assert.equal((await runtime()).vqNumber("1 234,56"), 1234.56);
+  assert.equal(runPy(`print(vq_number("1\\u00a0234,56"))`).trim(), "1234.56");
 });
 
-// ── FS-11: base64 that is not text ───────────────────────────────────────────
+// ── VQ-11: base64 that is not text ───────────────────────────────────────────
 
 test("base64 that decodes to invalid UTF-8 is null, not mangled text", async (t) => {
   // runPy spawns an interpreter, so these skip where there is none rather than
@@ -224,14 +233,14 @@ test("base64 that decodes to invalid UTF-8 is null, not mangled text", async (t)
   // Buffer.toString('utf8') replaces bad bytes with U+FFFD and hands back a
   // string, where the in-page decoder uses { fatal: true } and returns null.
   // A plausible wrong answer is worse than an empty cell.
-  assert.equal((await runtime()).fsB64("///+"), null);
-  assert.equal(runPy(`print(fs_b64("///+"))`).trim(), "None");
+  assert.equal((await runtime()).vqB64("///+"), null);
+  assert.equal(runPy(`print(vq_b64("///+"))`).trim(), "None");
   // Real base64 still decodes in both.
-  assert.equal((await runtime()).fsB64("aGVsbG8="), "hello");
-  assert.equal(runPy(`print(fs_b64("aGVsbG8="))`).trim(), "hello");
+  assert.equal((await runtime()).vqB64("aGVsbG8="), "hello");
+  assert.equal(runPy(`print(vq_b64("aGVsbG8="))`).trim(), "hello");
 });
 
-// ── FS-10: LOOP max = 0 ──────────────────────────────────────────────────────
+// ── VQ-10: LOOP max = 0 ──────────────────────────────────────────────────────
 
 test("a LOOP with max 0 runs over every element, as the panel says", () => {
   const unbounded = pipeline([
@@ -258,7 +267,7 @@ test("a LOOP with max 0 runs over every element, as the panel says", () => {
   assert.match(emitPython(bounded), /enumerate\(elements\[:3\]\)/);
 });
 
-// ── FS-12: what ASSERT compares ──────────────────────────────────────────────
+// ── VQ-12: what ASSERT compares ──────────────────────────────────────────────
 
 test("ASSERT and IF_ELSE read textContent, the way the extension does", () => {
   // _stepAssert and _stepIfElse both return el.textContent. innerText drops
@@ -266,9 +275,9 @@ test("ASSERT and IF_ELSE read textContent, the way the extension does", () => {
   // in the script, with neither able to explain why.
   assert.match(
     js,
-    /fsTrim\(await loc\.first\(\)\.evaluate\(n => n\.textContent\)\)/,
+    /vqTrim\(await loc\.first\(\)\.evaluate\(n => n\.textContent\)\)/,
   );
-  assert.match(py, /fs_trim\(await loc\.first\.text_content\(\)\)/);
+  assert.match(py, /vq_trim\(await loc\.first\.text_content\(\)\)/);
   assert.ok(!/loc\.first\(\)\.innerText\(\)/.test(js));
   assert.ok(!/loc\.first\.inner_text\(\)/.test(py));
 });

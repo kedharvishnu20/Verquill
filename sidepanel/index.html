@@ -1475,7 +1475,7 @@
       }
 
       /* Toasts — the replacement for alert() (E-06) */
-      #fs-toasts {
+      #vq-toasts {
         position: fixed;
         left: 12px;
         right: 12px;
@@ -1487,7 +1487,7 @@
         pointer-events: none;
       }
 
-      .fs-toast {
+      .vq-toast {
         pointer-events: auto;
         cursor: pointer;
         background: var(--bg-raised);
@@ -1499,20 +1499,20 @@
         font-size: 12px;
         color: var(--text-main);
         word-break: break-word;
-        animation: fs-toast-in 140ms ease-out;
+        animation: vq-toast-in 140ms ease-out;
       }
 
-      .fs-toast.error-log {
+      .vq-toast.error-log {
         border-left-color: var(--red);
       }
-      .fs-toast.warn-log {
+      .vq-toast.warn-log {
         border-left-color: var(--yellow);
       }
-      .fs-toast.info-log {
+      .vq-toast.info-log {
         border-left-color: var(--accent);
       }
 
-      @keyframes fs-toast-in {
+      @keyframes vq-toast-in {
         from {
           opacity: 0;
           transform: translateY(6px);

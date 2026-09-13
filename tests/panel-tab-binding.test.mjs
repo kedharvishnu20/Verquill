@@ -1,13 +1,13 @@
 // Which tab the panel thinks it is driving.
 //
-// The board is stored per tab as `fs_active_pipeline_<tabId>` (E-13), so this
+// The board is stored per tab as `vq_active_pipeline_<tabId>` (E-13), so this
 // one answer decides which pipeline appears. Getting it wrong does not present
 // as an error — it presents as the user's work having vanished.
 //
 // Boot asked `chrome.tabs.query({active, currentWindow})` exactly once and took
 // whatever came back. When that resolved to an empty list — a window switch, a
 // tab being replaced, the panel reloading — SK.PIPELINE stayed the bare,
-// shared `fs_active_pipeline`. Three things then went wrong at once: the real
+// shared `vq_active_pipeline`. Three things then went wrong at once: the real
 // board did not load, nothing said so, and the next edit wrote to the shared
 // key, so a later boot that *did* resolve the tab read the correct key and
 // silently lost that edit.

@@ -347,7 +347,7 @@ test("the content script answers the detect message", async () => {
     new URL("../content/injector.js", import.meta.url),
     "utf8",
   );
-  assert.match(injector, /"FS_DETECT_STRUCTURE",/, "the type is owned");
+  assert.match(injector, /"VQ_DETECT_STRUCTURE",/, "the type is owned");
   assert.match(injector, /globalThis\.__fsDetectStructure/);
   assert.match(
     injector,
