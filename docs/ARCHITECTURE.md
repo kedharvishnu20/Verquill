@@ -184,20 +184,33 @@ papered over.
 
 ---
 
-## 10. One module is kept unreachable on purpose
+## 10. Nothing is kept unreachable any more
 
-`field-auto-mapper.js` works, and nothing calls it [A-07].
+This section used to name three modules that worked and that nothing called.
+All three are resolved, and the resolutions were different on purpose.
 
-This section used to name three, and two of them have since been wired:
-`form-filler.js` runs behind FORM_FILL, and `captcha-detector.js` was replaced
-by the live `captcha-check.js` [K-02]. The A-05 citation was wrong as well —
+`form-filler.js` runs behind FILL, loaded on demand by the injector.
+`captcha-detector.js` was replaced by the smaller `captcha-check.js`, which
+SOLVE_CAPTCHA actually consults [K-02]. The A-05 citation was wrong as well —
 that finding is the proxy pool, which now runs during a scrape.
 
-Since it is unreachable, deleting and keeping it behave identically today.
-Enabling it would add a class of capability nobody asked for; deleting it
-forecloses a decision that is not mine. So it carries a header saying plainly
-that nothing calls it, with the finding that explains why — and its own defects
-are still fixed as defects [B-33, B-34].
+`field-auto-mapper.js` is deleted. It stayed unreachable longest, on the
+reasoning that removing it foreclosed a decision that was not mine. That
+reasoning expired once the decision was made elsewhere: AUTO_EXTRACT needed to
+map a model's returned keys onto the field names a user asked for, which is the
+same problem the mapper was written for. So its one genuinely useful part,
+`fieldMatchScore()` in `utils/levenshtein.js`, is now called by
+`utils/extraction-schema.js`, and the rest of the file was deleted rather than
+left as a second, drifting copy of that idea.
+
+The general rule this settles on: a module that nothing calls is not preserved
+for its own sake. Either something calls it or it goes, and the useful part of
+a deleted module moves to where it is used rather than being kept in place
+against a future that may not come.
+
+That is now enforced rather than intended. `npm run lint` fails on a reference
+to a name that does not exist, and `tests/dead-code-and-defects.test.mjs` fails
+if a shared function grows a second implementation.
 
 Everything else the audit called dead has since been deleted or wired up. The
 table is in the audit's status section.

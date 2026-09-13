@@ -111,9 +111,9 @@ function makeDispatcher() {
 
 function wireListeners({ add }) {
   const CE = {
-    STEP_EXEC: "FS_STEP_EXEC",
-    PICK_SELECTOR: "FS_PICK_SELECTOR",
-    FORM_FILL_ROW: "FS_FORM_FILL_ROW",
+    STEP_EXEC: "VQ_STEP_EXEC",
+    PICK_SELECTOR: "VQ_PICK_SELECTOR",
+    FORM_FILL_ROW: "VQ_FORM_FILL_ROW",
   };
   const OWNED = new Set([
     CE.STEP_EXEC,
@@ -175,7 +175,7 @@ test("injector still answers its own message types", async () => {
     "injector",
   );
   assert.equal(
-    (await d.dispatch({ type: "FS_PICK_SELECTOR", payload: {} }))?.result?.from,
+    (await d.dispatch({ type: "VQ_PICK_SELECTOR", payload: {} }))?.result?.from,
     "injector",
   );
 });

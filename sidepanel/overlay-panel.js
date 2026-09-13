@@ -5,8 +5,13 @@
  */
 "use strict";
 
-const SK_PREFS = "fs_overlay_prefs";
-const SK_PALETTE = "fs_zone_palette";
+// Shared with the builder rather than reimplemented: talking to a page needs
+// the same ensure-then-send dance and the same explanation when Chrome refuses
+// the page, and a second copy of that is a second thing to keep correct.
+import { _ensureContentReady, notify } from "./pipeline-builder.js";
+
+const SK_PREFS = "vq_overlay_prefs";
+const SK_PALETTE = "vq_zone_palette";
 
 const DEFAULT_PREFS = {
   enabled: true,
@@ -73,7 +78,11 @@ async function _savePrefs() {
       });
     }
   } catch {
-    /* ignore */
+    // Deliberately silent, unlike the preview button below. This fires on every
+    // preference change, and a tab with no content script is the normal case
+    // rather than a fault — the preferences are already saved to storage, and
+    // this message only asks a page that happens to be listening to repaint
+    // now. Warning here would mean a toast every time a checkbox moved.
   }
 }
 
@@ -203,11 +212,33 @@ function _bindEvents() {
         active: true,
         currentWindow: true,
       });
-      if (!tab?.id) return alert("No active tab");
-      await chrome.tabs.sendMessage(tab.id, {
-        type: "overlay:setMode",
-        payload: { action: "previewAll" },
-      });
+      if (!tab?.id) {
+        notify("warn-log", "No active tab to preview the overlay on.");
+        return;
+      }
+
+      // Content scripts are injected on demand (C-09), so a tab that has never
+      // had a pipeline run against it has nothing listening. Sending anyway
+      // rejected with "Could not establish connection. Receiving end does not
+      // exist." — uncaught, so it reached the console as a stack trace and the
+      // button simply did nothing. Same ensure-then-send the selector picker
+      // uses; _ensureContentReady already explains the pages Chrome refuses.
+      if (!(await _ensureContentReady(tab.id))) return;
+
+      try {
+        await chrome.tabs.sendMessage(tab.id, {
+          type: "overlay:setMode",
+          payload: { action: "previewAll" },
+        });
+      } catch (err) {
+        // Injection can succeed and the send still fail: the page navigated in
+        // between, or it tore the script down. Worth saying, because the user
+        // pressed a button and is owed an answer either way.
+        notify(
+          "error-log",
+          `Could not show the overlay preview: ${err?.message || "the page stopped responding"}`,
+        );
+      }
     });
 }
 

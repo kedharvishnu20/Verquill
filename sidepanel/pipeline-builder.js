@@ -35,9 +35,9 @@ const MSG = {
   PIPELINE_PAUSE: "pipeline:pause",
   PIPELINE_RESUME: "pipeline:resume",
 };
-let SK = { PIPELINE: "fs_active_pipeline" };
-SK.STORAGE_FILES = "fs_storage_files_v1";
-SK.UPLOAD_ACTIVITIES = "fs_upload_activities_v1";
+let SK = { PIPELINE: "vq_active_pipeline" };
+SK.STORAGE_FILES = "vq_storage_files_v1";
+SK.UPLOAD_ACTIVITIES = "vq_upload_activities_v1";
 
 let _tabId = null;
 /**
@@ -109,7 +109,7 @@ const elBoardViewport = document.getElementById("board-viewport");
 /**
  * Which tab this panel is driving.
  *
- * The board is stored per tab under `fs_active_pipeline_<tabId>` (E-13), so
+ * The board is stored per tab under `vq_active_pipeline_<tabId>` (E-13), so
  * this answer decides which pipeline appears. Getting it wrong does not look
  * like an error — it looks like the user's work is gone.
  *
@@ -142,9 +142,9 @@ async function _resolveTabId() {
 async function init() {
   _tabId = await _resolveTabId();
   if (_tabId != null) {
-    SK.PIPELINE = `fs_active_pipeline_${_tabId}`;
+    SK.PIPELINE = `vq_active_pipeline_${_tabId}`;
   } else {
-    // Falling through to the bare `fs_active_pipeline` key is the dangerous
+    // Falling through to the bare `vq_active_pipeline` key is the dangerous
     // part, and it used to happen in silence: the board loads empty, the user
     // reasonably concludes their pipeline is gone, and the moment they touch
     // anything, saveState writes to that shared key — so the next boot that
@@ -169,7 +169,7 @@ async function init() {
     }
 
     _tabId = activeInfo.tabId;
-    SK.PIPELINE = `fs_active_pipeline_${_tabId}`;
+    SK.PIPELINE = `vq_active_pipeline_${_tabId}`;
     const saved = (await chrome.storage.local.get(SK.PIPELINE))[SK.PIPELINE];
 
     // A panel that booted without a tab has been writing to the shared key.
@@ -1049,6 +1049,185 @@ function bindGlobalControls() {
     }
   });
 
+  // --- Library Dropdown Logic ---
+  const libBtn = document.getElementById("btn-library-dropdown");
+  const libDropdown = document.getElementById("library-dropdown");
+  const libList = document.getElementById("library-list");
+
+  if (libBtn) {
+    libBtn.addEventListener("click", async () => {
+      libDropdown.classList.toggle("hidden");
+      if (libDropdown.classList.contains("hidden")) return;
+
+      libList.innerHTML = `<div style="color: var(--dim); font-size: 11px; padding: 4px;">Loading...</div>`;
+
+      const res = await chrome.storage.local.get([
+        "vq_github_pat",
+        "vq_github_repo",
+      ]);
+      const pat = res.vq_github_pat;
+      let repoUrl =
+        res.vq_github_repo ||
+        "https://github.com/kedharvishnu20/Verquill_Market_place.git";
+
+      let repoPath = repoUrl
+        .replace("https://github.com/", "")
+        .replace(".git", "")
+        .replace(/\/$/, "");
+      const headers = { Accept: "application/vnd.github.v3+json" };
+      if (pat) headers["Authorization"] = `token ${pat}`;
+      const decode = (c) =>
+        JSON.parse(
+          decodeURIComponent(escape(atob(String(c).replace(/\s/g, "")))),
+        );
+
+      const pipelines = [];
+      const seen = new Set();
+      const add = (p, source) => {
+        if (!p || typeof p !== "object" || !Array.isArray(p.steps)) return;
+        const id = p.id || p.name;
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        p.__source = source;
+        pipelines.push(p);
+      };
+
+      // 1) Local pipelines you built in the sidepanel (chrome.storage). Always shown.
+      try {
+        const stored = await chrome.storage.local.get(null);
+        Object.keys(stored)
+          .filter((k) => k.startsWith("vq_active_pipeline"))
+          .forEach((k) => {
+            const p = stored[k];
+            if (p && typeof p === "object" && Array.isArray(p.steps)) {
+              if (!p.id) p.id = k;
+              add(p, "local");
+            }
+          });
+      } catch (_) {}
+
+      // 2) GitHub personal library (per-file + legacy). Best-effort.
+      let githubError = false;
+      try {
+        const dirRes = await fetch(
+          `https://api.github.com/repos/${repoPath}/contents/pipelines`,
+          { headers, cache: "no-store" },
+        );
+        if (dirRes.ok) {
+          const items = await dirRes.json();
+          for (const it of Array.isArray(items) ? items : []) {
+            if (
+              it.type !== "file" ||
+              !it.name.toLowerCase().endsWith(".json") ||
+              it.name.toLowerCase() === "registry.json"
+            )
+              continue;
+            try {
+              const fr = await fetch(it.url, { headers, cache: "no-store" });
+              if (!fr.ok) continue;
+              add(decode((await fr.json()).content), "github");
+            } catch (_) {}
+          }
+        }
+        const legRes = await fetch(
+          `https://api.github.com/repos/${repoPath}/contents/registry.json`,
+          { headers, cache: "no-store" },
+        );
+        if (legRes.ok) {
+          const arr = decode((await legRes.json()).content);
+          (Array.isArray(arr) ? arr : []).forEach((p) => add(p, "github"));
+        }
+      } catch (_) {
+        githubError = true;
+      }
+
+      // 3) Render.
+      if (!pipelines.length) {
+        libList.innerHTML = githubError
+          ? `<div style="color: var(--red); font-size: 11px; padding: 8px;">Couldn't reach GitHub, and no local pipelines found.</div>`
+          : `<div style="color: var(--dim); font-size: 11px; padding: 8px;">No pipelines yet. Build one on the canvas, or push from the Marketplace.</div>`;
+        return;
+      }
+
+      libList.innerHTML = "";
+      pipelines.forEach((p) => {
+        const stepCount = Array.isArray(p.steps) ? p.steps.length : 0;
+        const name = p.name || p.id || "Untitled Pipeline";
+        const srcLabel = p.__source === "github" ? "GITHUB" : "LOCAL";
+
+        const item = document.createElement("button");
+        item.type = "button";
+        item.title = p.description || p.desc || "";
+        item.style.cssText =
+          "display:flex;flex-direction:column;align-items:flex-start;gap:2px;" +
+          "width:100%;padding:8px 10px;background:transparent;border:1px solid transparent;" +
+          "border-radius:var(--radius);cursor:pointer;text-align:left;color:var(--ink);";
+        item.addEventListener("mouseenter", () => {
+          item.style.background = "var(--void)";
+          item.style.borderColor = "var(--line)";
+        });
+        item.addEventListener("mouseleave", () => {
+          item.style.background = "transparent";
+          item.style.borderColor = "transparent";
+        });
+
+        const nameEl = document.createElement("div");
+        nameEl.textContent = name;
+        nameEl.style.cssText =
+          "font-size:12px;font-weight:600;line-height:1.3;word-break:break-word;";
+
+        const metaEl = document.createElement("div");
+        metaEl.textContent =
+          `${srcLabel} · ${stepCount} step${stepCount === 1 ? "" : "s"}` +
+          (p.author ? ` · @${p.author}` : "");
+        metaEl.style.cssText =
+          "font-family:var(--mono);font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--dim);";
+
+        item.appendChild(nameEl);
+        item.appendChild(metaEl);
+        item.onclick = async () => {
+          try {
+            _pipeline = _normalizeImportedPipeline(p);
+          } catch (_) {
+            _pipeline = p;
+          }
+          _expandedNodeIds.clear();
+          await saveState();
+          renderPipeline();
+          libDropdown.classList.add("hidden");
+          logToMonitor(
+            "info-log",
+            `Loaded "${name}" from library (${(_pipeline.steps || []).length} top-level steps).`,
+          );
+        };
+        libList.appendChild(item);
+      });
+
+      if (githubError) {
+        const note = document.createElement("div");
+        note.textContent = "GitHub unreachable — showing local only.";
+        note.style.cssText =
+          "color: var(--red); font-size: 10px; padding: 6px 8px;";
+        libList.appendChild(note);
+      }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      if (!libBtn.contains(e.target) && !libDropdown.contains(e.target)) {
+        libDropdown.classList.add("hidden");
+      }
+    });
+  }
+
+  document
+    .getElementById("btn-open-registry")
+    ?.addEventListener("click", () => {
+      chrome.tabs.create({
+        url: chrome.runtime.getURL("site/dist/index.html"),
+      });
+    });
+
   document
     .getElementById("btn-download-pipeline")
     ?.addEventListener("click", async () => {
@@ -1423,7 +1602,29 @@ function _normalizeImportedStep(step, where, seenIds) {
     );
   }
 
-  let id = typeof step.id === "string" && step.id.trim() ? step.id.trim() : "";
+  // The id is the one imported value that reaches the DOM unescaped. It is
+  // interpolated into `data-id="…"` and `id="cfg-…"` attributes in more than
+  // sixty places across renderStepNode and generateConfigHtml, and unlike every
+  // other untrusted value in this file it never passes through esc(). An id of
+  //
+  //   x" onmouseenter="…
+  //
+  // therefore closes the attribute and adds one of its own. The extension's CSP
+  // (`script-src 'self'`, no unsafe-inline) stops that handler from running, so
+  // this is attribute injection rather than script execution — but `data-id` is
+  // the lookup key every step action uses (`target.dataset.id` → _findStepDeep),
+  // so a crafted id lets one element carry another's identity, and the CSP is
+  // the only thing standing between that and the rest.
+  //
+  // Escaping sixty-one call sites would leave the sixty-second to whoever adds
+  // it next. Constraining the value where it enters means there is nothing to
+  // escape: ids are ours to choose, an imported one is only a hint, and a
+  // pipeline whose ids are rewritten still works because _normalizeImportedStep
+  // already rewrites duplicates and remaps children to match.
+  const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+  const offered =
+    typeof step.id === "string" && step.id.trim() ? step.id.trim() : "";
+  let id = SAFE_ID.test(offered) ? offered : "";
   if (!id || seenIds.has(id)) {
     id = _nextStepId();
   }
@@ -3722,8 +3923,8 @@ function bindConfigInputs(container = document) {
     // every expand, collapse, add and remove — so editing a selector was
     // jumpy for a reason (E-10). A marker does the same job without touching
     // the node; a re-rendered element is a new node and carries no marker.
-    if (el.dataset.fsBound === "1") return;
-    el.dataset.fsBound = "1";
+    if (el.dataset.vqBound === "1") return;
+    el.dataset.vqBound = "1";
     const newEl = el;
 
     newEl.addEventListener("change", (e) => {
@@ -4571,7 +4772,7 @@ function _confirmEthicsWarnings(warnings) {
  * @param {number} tabId
  * @returns {Promise<boolean>} false when the page refuses injection
  */
-async function _ensureContentReady(tabId) {
+export async function _ensureContentReady(tabId) {
   const res = await chrome.runtime
     .sendMessage({ type: "content:ensure", payload: { tabId } })
     .catch(() => null);
@@ -4626,7 +4827,7 @@ function _applyPickedFrame(step, frameUrl) {
 /** Disarm the pickers in every frame that was not the one clicked in. */
 function _cancelPickersElsewhere(tabId) {
   chrome.tabs
-    .sendMessage(tabId, { type: "FS_PICK_CANCEL", payload: {} })
+    .sendMessage(tabId, { type: "VQ_PICK_CANCEL", payload: {} })
     .catch(() => {});
 }
 
@@ -4652,7 +4853,7 @@ async function _pickSelector(stepId, key) {
   try {
     if (!(await _ensureContentReady(tab.id))) return;
     const resp = await chrome.tabs.sendMessage(tab.id, {
-      type: "FS_PICK_SELECTOR",
+      type: "VQ_PICK_SELECTOR",
       payload: { bulk: mode },
     });
     _cancelPickersElsewhere(tab.id);
@@ -5188,7 +5389,7 @@ async function _addExtractField(stepId) {
   try {
     if (!(await _ensureContentReady(tab.id))) return;
     const resp = await chrome.tabs.sendMessage(tab.id, {
-      type: "FS_PICK_SELECTOR",
+      type: "VQ_PICK_SELECTOR",
       payload: { bulk, scopeSelector },
     });
     _cancelPickersElsewhere(tab.id);
@@ -5233,7 +5434,7 @@ async function _addFillField(stepId) {
   try {
     if (!(await _ensureContentReady(tab.id))) return;
     const resp = await chrome.tabs.sendMessage(tab.id, {
-      type: "FS_PICK_SELECTOR",
+      type: "VQ_PICK_SELECTOR",
       payload: { bulk: false },
     });
     _cancelPickersElsewhere(tab.id);
@@ -5406,6 +5607,32 @@ function _registerKey(stepId) {
 
 // ── System listeners ──────────────────────────────────────────────────────────
 function listenToSystem() {
+  // ── Marketplace "Run Now" / "Load" bridge ───────────────────────────────
+  // The marketplace SPA cannot know our tab-scoped SK.PIPELINE key, so it
+  // writes to a shared key vq_marketplace_load. We pick it up here and
+  // immediately load it into the active canvas, then clear the bridge key.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    if (!changes.vq_marketplace_load) return;
+    const pipeline = changes.vq_marketplace_load.newValue;
+    if (
+      !pipeline ||
+      typeof pipeline !== "object" ||
+      !Array.isArray(pipeline.steps)
+    )
+      return;
+
+    _pipeline = pipeline;
+    renderPipeline();
+    chrome.storage.local.set({ [SK.PIPELINE]: _pipeline });
+    // Clear the bridge key so this won't re-trigger
+    chrome.storage.local.remove("vq_marketplace_load");
+    notify(
+      "info-log",
+      `Pipeline "${pipeline.name || pipeline.id}" loaded from Marketplace.`,
+    );
+  });
+
   chrome.runtime.onMessage.addListener((msg) => {
     // If msg provides a tabId, only log/update if it matches our sidepanel's tab
     if (msg.payload?.tabId && msg.payload.tabId !== _tabId) return;
@@ -5512,18 +5739,18 @@ const MAX_LOG_ENTRIES = 500;
  * @param {'info-log'|'warn-log'|'error-log'} levelClass
  * @param {string} message
  */
-function notify(levelClass, message) {
+export function notify(levelClass, message) {
   logToMonitor(levelClass, message);
 
-  let host = document.getElementById("fs-toasts");
+  let host = document.getElementById("vq-toasts");
   if (!host) {
     host = document.createElement("div");
-    host.id = "fs-toasts";
+    host.id = "vq-toasts";
     document.body.appendChild(host);
   }
 
   const el = document.createElement("div");
-  el.className = `fs-toast ${levelClass}`;
+  el.className = `vq-toast ${levelClass}`;
   el.textContent = String(message ?? "");
   host.appendChild(el);
 
@@ -5783,7 +6010,7 @@ function renderProvenance(rows) {
   if (!logs || !Array.isArray(rows) || rows.length === 0) return;
 
   const box = document.createElement("div");
-  box.className = "log-entry info-log fs-provenance";
+  box.className = "log-entry info-log vq-provenance";
 
   const head = document.createElement("div");
   head.className = "log-msg";

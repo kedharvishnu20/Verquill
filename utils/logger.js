@@ -96,7 +96,7 @@ function _log(level, module, event, data = {}) {
       error: "color:#ef5350;font-weight:bold",
     }[level] ?? "";
 
-  const prefix = `[FS:${level.toUpperCase()}][${module}] ${event}`;
+  const prefix = `[VQ:${level.toUpperCase()}][${module}] ${event}`;
   const outStr = Object.keys(entry.data).length
     ? JSON.stringify(entry.data)
     : "";

@@ -1475,7 +1475,7 @@
       }
 
       /* Toasts — the replacement for alert() (E-06) */
-      #fs-toasts {
+      #vq-toasts {
         position: fixed;
         left: 12px;
         right: 12px;
@@ -1487,7 +1487,7 @@
         pointer-events: none;
       }
 
-      .fs-toast {
+      .vq-toast {
         pointer-events: auto;
         cursor: pointer;
         background: var(--bg-raised);
@@ -1499,20 +1499,20 @@
         font-size: 12px;
         color: var(--text-main);
         word-break: break-word;
-        animation: fs-toast-in 140ms ease-out;
+        animation: vq-toast-in 140ms ease-out;
       }
 
-      .fs-toast.error-log {
+      .vq-toast.error-log {
         border-left-color: var(--red);
       }
-      .fs-toast.warn-log {
+      .vq-toast.warn-log {
         border-left-color: var(--yellow);
       }
-      .fs-toast.info-log {
+      .vq-toast.info-log {
         border-left-color: var(--accent);
       }
 
-      @keyframes fs-toast-in {
+      @keyframes vq-toast-in {
         from {
           opacity: 0;
           transform: translateY(6px);
@@ -2286,8 +2286,53 @@
                 <option value="python">Python</option>
                 <option value="node">Node</option>
               </select>
-              <button class="btn" id="btn-upload-pipeline">Load</button>
+              <button class="btn" id="btn-upload-pipeline">Load Local</button>
+              <button class="btn btn-accent" id="btn-library-dropdown">
+                My Library ▼
+              </button>
+              <div
+                id="library-dropdown"
+                class="hidden"
+                style="
+                  position: absolute;
+                  background: var(--panel);
+                  border: 1px solid var(--line);
+                  padding: 6px;
+                  z-index: 1000;
+                  top: 40px;
+                  border-radius: var(--radius);
+                  box-shadow: var(--shadow-fly);
+                  width: 280px;
+                  max-height: 340px;
+                  overflow-y: auto;
+                "
+              >
+                <div
+                  style="
+                    font-family: var(--mono);
+                    font-size: 9px;
+                    letter-spacing: 0.16em;
+                    text-transform: uppercase;
+                    color: var(--dim);
+                    padding: 6px 8px 8px;
+                    border-bottom: 1px solid var(--line);
+                    margin-bottom: 6px;
+                  "
+                >
+                  My Library
+                </div>
+                <div
+                  id="library-list"
+                  style="display: flex; flex-direction: column; gap: 2px"
+                >
+                  <div style="color: var(--dim); font-size: 11px; padding: 8px">
+                    Loading...
+                  </div>
+                </div>
+              </div>
+
               <button class="btn" id="btn-download-pipeline">Save JSON</button>
+              <button class="btn" id="btn-open-registry">Marketplace</button>
               <input
                 id="input-upload-pipeline"
                 type="file"

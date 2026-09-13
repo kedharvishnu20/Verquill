@@ -21,11 +21,25 @@ const src = await readFile(
   "utf8",
 );
 
+/**
+ * Strip module syntax from an extracted span.
+ *
+ * These tests pull real function bodies out of the panel source and evaluate
+ * them with `new Function`, which is what makes them tests of the code rather
+ * than of a copy of it. `export` is a syntax error inside that body, so a
+ * helper becoming shared — as `notify` did when the overlay panel started using
+ * it — would break the extraction rather than the behaviour. The keyword is
+ * irrelevant to everything asserted below, so it is removed rather than
+ * matched around.
+ */
+const stripExports = (s) =>
+  s.replace(/\bexport (?=(async )?function |const |let )/g, "");
+
 /** Pull a top-level function (and any consts it needs) out of the source. */
 function extract(pattern) {
   const m = src.match(pattern);
   assert.ok(m, `could not find ${pattern}`);
-  return m[0];
+  return stripExports(m[0]);
 }
 
 const escSrc = extract(/function esc\(s\) \{[\s\S]*?\n\}/);
@@ -33,9 +47,11 @@ const escSrc = extract(/function esc\(s\) \{[\s\S]*?\n\}/);
 // The cap is a later addition; extract with it when present so this file still
 // loads — and fails per-test rather than wholesale — against the older shape.
 const logSrc =
-  src.match(
-    /const MAX_LOG_ENTRIES[\s\S]*?\nfunction logToMonitor[\s\S]*?\n\}/,
-  )?.[0] ??
+  stripExports(
+    src.match(
+      /const MAX_LOG_ENTRIES[\s\S]*?\nfunction logToMonitor[\s\S]*?\n\}/,
+    )?.[0] ?? "",
+  ) ||
   `const MAX_LOG_ENTRIES = Infinity;\n` +
     extract(/function logToMonitor\([\s\S]*?\n\}/);
 

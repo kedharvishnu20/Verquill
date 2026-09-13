@@ -1,0 +1,1089 @@
+/*
+       * The extension is designed like the front panel of a piece of lab
+       * equipment. This is the parts catalogue that goes with it.
+       *
+       * Same warm graphite, same single amber signal, same two faces — but a
+       * catalogue has room a 400px strip does not, so the density goes
+       * sideways into tabular rows rather than down into accordions. Every
+       * entry carries a part number and a picture of its own structure.
+       *
+       * Deliberately single-theme. The instrument is dark; a catalogue for it
+       * that turned white in daylight would be a different product. Every
+       * colour is painted explicitly so the page holds on any host ground.
+       */
+:root {
+  --void: #0a0908;
+  --base: #121110;
+  --raised: #1a1917;
+  --hover: #232120;
+  --line: #2e2b28;
+  --hair: rgba(242, 239, 233, 0.08);
+
+  --ink: #f2efe9;
+  --muted: #a09a90;
+  --dim: #6f6a63;
+
+  /* The one colour anything actionable is allowed to be. */
+  --amber: #e8b33a;
+  --amber-ink: #100e0a;
+  --amber-dim: rgba(232, 179, 58, 0.14);
+
+  /* Reserved. Mint means checked-and-passed, and nothing else. */
+  --mint: #5fe3c0;
+  --mint-dim: rgba(95, 227, 192, 0.12);
+
+  /* Semantic, kept apart from the accent. */
+  --red: #ff5c3a;
+  --red-dim: rgba(255, 92, 58, 0.13);
+  --green: #7fc98a;
+
+  /* Step categories, straight from the extension's palette. */
+  --cat-action: #e0a03f;
+  --cat-flow: #9b8bd4;
+  --cat-data: #6fa8c9;
+
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --gutter: clamp(16px, 4vw, 56px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--base);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Grain. Instruments are not printed on glossy stock. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Shell ──────────────────────────────────────────────────────────── */
+
+.masthead {
+  border-bottom: 1px solid var(--line);
+  background: var(--void);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.masthead-in {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 62px;
+}
+
+.wordmark {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.wordmark b {
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.wordmark span {
+  color: var(--dim);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.mainnav {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.mainnav a {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 7px 13px;
+  border: 1px solid transparent;
+  transition:
+    color 0.14s,
+    border-color 0.14s;
+}
+
+.mainnav a:hover {
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.mainnav a.on {
+  color: var(--amber-ink);
+  background: var(--amber);
+  border-color: var(--amber);
+}
+
+.nav-pills {
+  display: flex;
+  gap: 16px;
+}
+
+.nav-pill {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 7px 13px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    color 0.14s,
+    border-color 0.14s;
+}
+
+.nav-pill:hover {
+  color: var(--ink);
+}
+
+.nav-pill.active {
+  color: var(--ink);
+  border-bottom: 2px solid var(--amber);
+}
+
+main {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 var(--gutter) 96px;
+}
+
+/* ── Section furniture ──────────────────────────────────────────────── */
+
+.head {
+  padding: 44px 0 26px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 26px;
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 14px;
+}
+
+h1 {
+  font-family: var(--mono);
+  font-size: clamp(28px, 4.4vw, 46px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+h1 em {
+  font-style: normal;
+  color: var(--amber);
+}
+
+.lede {
+  margin-top: 16px;
+  max-width: 64ch;
+  color: var(--muted);
+  font-size: 15.5px;
+}
+
+.lede strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+h2 {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+
+/* ── Controls ───────────────────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.field {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  background: var(--void);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 9px 12px;
+}
+
+.field::placeholder {
+  color: var(--dim);
+}
+
+.field:focus {
+  border-color: var(--amber);
+  outline: none;
+}
+
+#q {
+  flex: 1;
+  min-width: 210px;
+}
+
+.chipset {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 7px 11px;
+  cursor: pointer;
+  transition:
+    color 0.14s,
+    border-color 0.14s;
+}
+
+.chip:hover {
+  color: var(--ink);
+  border-color: var(--dim);
+}
+
+.chip.on {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: var(--amber-dim);
+}
+
+.btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 500;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.14s,
+    border-color 0.14s;
+}
+
+.btn:hover {
+  border-color: var(--dim);
+  background: var(--hover);
+}
+
+.btn-primary {
+  background: var(--amber);
+  color: var(--amber-ink);
+  border-color: var(--amber);
+  font-weight: 700;
+}
+
+.btn-primary:hover {
+  background: #f2c256;
+  border-color: #f2c256;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── The catalogue ──────────────────────────────────────────────────── */
+
+.rows {
+  border-top: 1px solid var(--line);
+}
+
+/* Column legend. A catalogue names its columns; the shape column in
+         particular means nothing until you are told what it draws. */
+.rows-head {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) 0 auto;
+  gap: 20px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.rows-head > :last-child {
+  text-align: right;
+}
+
+/* The header already draws the rule; two would read as a mistake. */
+.rows-head + .rows {
+  border-top: 0;
+}
+
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 14px;
+}
+
+.legend i {
+  display: inline-block;
+  width: 16px;
+  height: 8px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+@media (max-width: 900px) {
+  .rows-head {
+    display: none;
+  }
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) 0 auto;
+  gap: 20px;
+  align-items: center;
+  padding: 17px 12px;
+  border-bottom: 1px solid var(--hair);
+  transition: background 0.13s;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.row:hover {
+  background: var(--raised);
+}
+
+.partno {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+}
+
+.row:hover .partno {
+  color: var(--amber);
+}
+
+.row-name {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.row-meta {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-num {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-num span {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 2px;
+}
+
+/*
+       * The signature element: a pipeline's own structure, drawn.
+       *
+       * One segment per step, coloured by category, nested segments inset for
+       * loops and branches. It is the extension's idea — the shape of a
+       * pipeline should be legible before a single label is read — carried
+       * onto a listing page, where it does something a screenshot cannot:
+       * tells you at a glance that this one paginates and that one does not.
+       */
+.shape {
+  display: flex;
+  gap: 2px;
+  height: 22px;
+  align-items: stretch;
+}
+
+.seg {
+  flex: 1;
+  min-width: 3px;
+  position: relative;
+  border-radius: 0;
+}
+
+.seg-action {
+  background: var(--cat-action);
+}
+.seg-flow {
+  background: var(--cat-flow);
+}
+.seg-data {
+  background: var(--cat-data);
+}
+
+.seg-nested {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 2.2;
+  background: transparent;
+}
+
+.seg-nested > .seg-bar {
+  height: 6px;
+  background: var(--cat-flow);
+}
+
+.seg-nested > .seg-kids {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  padding-left: 9px;
+  border-left: 1px solid var(--cat-flow);
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────── */
+
+.badge {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border: 1px solid;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.b-verified {
+  color: var(--mint);
+  border-color: rgba(95, 227, 192, 0.4);
+  background: var(--mint-dim);
+}
+
+.b-review {
+  color: var(--amber);
+  border-color: rgba(232, 179, 58, 0.4);
+  background: var(--amber-dim);
+}
+
+.b-refused {
+  color: var(--red);
+  border-color: rgba(255, 92, 58, 0.45);
+  background: var(--red-dim);
+}
+
+.b-broken {
+  color: var(--red);
+  border-color: rgba(255, 92, 58, 0.35);
+  background: transparent;
+}
+
+.b-plain {
+  color: var(--dim);
+  border-color: var(--line);
+}
+
+/* ── Detail view ────────────────────────────────────────────────────── */
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 372px;
+  gap: 40px;
+  align-items: start;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  background: var(--raised);
+}
+
+.panel-head {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--void);
+}
+
+.panel-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.kv:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.kv dt {
+  color: var(--dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 10px;
+  padding-top: 2px;
+}
+
+.kv dd {
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* The step list, drawn like the panel draws it. */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 26px 3px 1fr;
+  gap: 12px;
+  align-items: center;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  padding: 11px 13px;
+}
+
+.step-idx {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.step-bar {
+  align-self: stretch;
+  background: var(--stepc, var(--cat-data));
+}
+
+.step-name {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.step-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.step-kids {
+  margin-left: 22px;
+  padding-left: 14px;
+  border-left: 1px solid var(--cat-flow);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+/* ── Capability review ──────────────────────────────────────────────── */
+
+.verdict {
+  border: 1px solid;
+  padding: 15px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.verdict-allow {
+  border-color: rgba(127, 201, 138, 0.4);
+  background: rgba(127, 201, 138, 0.08);
+}
+.verdict-review {
+  border-color: rgba(232, 179, 58, 0.4);
+  background: var(--amber-dim);
+}
+.verdict-blocked {
+  border-color: rgba(255, 92, 58, 0.5);
+  background: var(--red-dim);
+}
+
+.verdict-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.verdict-allow .verdict-title {
+  color: var(--green);
+}
+.verdict-review .verdict-title {
+  color: var(--amber);
+}
+.verdict-blocked .verdict-title {
+  color: var(--red);
+}
+
+.verdict p {
+  font-size: 13.5px;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+.caps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cap {
+  display: grid;
+  grid-template-columns: 3px 1fr;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--hair);
+}
+
+.cap:last-child {
+  border-bottom: 0;
+}
+
+.cap-rule {
+  background: var(--dim);
+}
+.cap-danger .cap-rule {
+  background: var(--red);
+}
+.cap-notice .cap-rule {
+  background: var(--amber);
+}
+.cap-info .cap-rule {
+  background: var(--dim);
+}
+
+.cap-title {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.cap-danger .cap-title {
+  color: var(--red);
+}
+
+.cap-detail {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+/* ── Code ───────────────────────────────────────────────────────────── */
+
+pre,
+textarea.code {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.65;
+  background: var(--void);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 14px;
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+
+textarea.code {
+  width: 100%;
+  min-height: 300px;
+  resize: vertical;
+  white-space: pre;
+}
+
+textarea.code:focus {
+  border-color: var(--amber);
+  outline: none;
+}
+
+/* ── Forum ──────────────────────────────────────────────────────────── */
+
+.thread {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr) 92px;
+  gap: 20px;
+  align-items: start;
+  padding: 17px 12px;
+  border-bottom: 1px solid var(--hair);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  color: inherit;
+  font: inherit;
+  transition: background 0.13s;
+}
+
+.thread:hover {
+  background: var(--raised);
+}
+
+.thread-cat {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--dim);
+  border-left: 2px solid var(--line);
+  padding-left: 9px;
+  padding-top: 2px;
+}
+
+.thread-cat.c-report {
+  border-left-color: var(--red);
+  color: var(--red);
+}
+.thread-cat.c-help {
+  border-left-color: var(--cat-flow);
+  color: var(--cat-flow);
+}
+.thread-cat.c-show {
+  border-left-color: var(--mint);
+  color: var(--mint);
+}
+
+.thread-title {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.thread-meta {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+
+.thread-count {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding-top: 1px;
+}
+
+.thread-count span {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.post {
+  border: 1px solid var(--line);
+  background: var(--raised);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.post-by {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--hair);
+  flex-wrap: wrap;
+}
+
+.post-by b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.post-body p {
+  margin-bottom: 11px;
+  max-width: 68ch;
+}
+
+.post-body p:last-child {
+  margin-bottom: 0;
+}
+
+.post-body code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  background: var(--void);
+  border: 1px solid var(--line);
+  padding: 1px 5px;
+  color: var(--amber);
+}
+
+.answer {
+  border-color: rgba(95, 227, 192, 0.35);
+}
+
+.answer .post-by::after {
+  content: "ANSWERED";
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  color: var(--mint);
+  border: 1px solid rgba(95, 227, 192, 0.4);
+  padding: 2px 6px;
+  margin-left: auto;
+}
+
+/* ── Utility ────────────────────────────────────────────────────────── */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rowflex {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.back {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-bottom: 18px;
+}
+
+.back:hover {
+  color: var(--amber);
+}
+
+.prose {
+  color: var(--muted);
+  font-size: 13.5px;
+  max-width: 68ch;
+  line-height: 1.6;
+}
+
+.empty {
+  padding: 52px 12px;
+  text-align: center;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.stats {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.stat b {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+footer {
+  border-top: 1px solid var(--line);
+  padding: 26px var(--gutter);
+  max-width: 1320px;
+  margin: 0 auto;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+@media (max-width: 900px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .row {
+    grid-template-columns: 76px minmax(0, 1fr);
+    row-gap: 12px;
+  }
+  .row > .shape,
+  .row > .row-num {
+    grid-column: 2;
+    text-align: left;
+  }
+  .thread {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 8px;
+  }
+  .thread-count {
+    text-align: left;
+  }
+}

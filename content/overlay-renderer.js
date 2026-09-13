@@ -46,18 +46,18 @@ const CROSSHATCH_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 // ── Animation stylesheet ──────────────────────────────────────────────────────
 const ANIM_CSS = `
-@keyframes fs-pulse {
+@keyframes vq-pulse {
   0%, 100% { opacity: 0.15; }
   50%       { opacity: 0.35; }
 }
-@keyframes fs-error-dash {
+@keyframes vq-error-dash {
   to { stroke-dashoffset: -20; }
 }
-@keyframes fs-fadeout {
+@keyframes vq-fadeout {
   from { opacity: 1; }
   to   { opacity: 0; }
 }
-@keyframes fs-blink-cursor {
+@keyframes vq-blink-cursor {
   0%, 49%  { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
@@ -116,7 +116,7 @@ function _createBadge(text, bgColor) {
     `will-change:transform`,
   ].join(";");
   badge.textContent = _truncLabel(text);
-  badge.dataset.fsBadge = "1";
+  badge.dataset.vqBadge = "1";
   return badge;
 }
 
@@ -158,7 +158,7 @@ function _applyModeStyle(div, color, mode) {
     case "live":
       div.style.background = hexToRGBA(color, 0.15);
       div.style.border = `2px solid ${color}`;
-      div.style.animation = `fs-pulse ${OVERLAY_PULSE_DURATION} ease-in-out infinite`;
+      div.style.animation = `vq-pulse ${OVERLAY_PULSE_DURATION} ease-in-out infinite`;
       break;
 
     case "completed":
@@ -169,7 +169,7 @@ function _applyModeStyle(div, color, mode) {
     case "error":
       div.style.background = hexToRGBA(COLOR_ERROR, 0.35);
       div.style.border = `2px dashed ${COLOR_ERROR}`;
-      div.style.animation = `fs-pulse 400ms ease-in-out 4`;
+      div.style.animation = `vq-pulse 400ms ease-in-out 4`;
       break;
 
     case "blocked":
@@ -257,9 +257,9 @@ export function createOverlayElement(
   const badgeColor = _modeBadgeColor(mode, color);
   const badge = _createBadge(badgeText, badgeColor);
   div.appendChild(badge);
-  div.dataset.fsLabel = label;
-  div.dataset.fsColor = color;
-  div.dataset.fsMode = mode;
+  div.dataset.vqLabel = label;
+  div.dataset.vqColor = color;
+  div.dataset.vqMode = mode;
 
   shadowRoot.appendChild(div);
   return div;
@@ -285,13 +285,13 @@ export function updateOverlayElement(
   matchCount,
 ) {
   _applyModeStyle(div, color, mode);
-  div.dataset.fsMode = mode;
+  div.dataset.vqMode = mode;
 
-  const badge = div.querySelector("[data-fs-badge]");
+  const badge = div.querySelector("[data-vq-badge]");
   if (badge) {
     const badgeText = _modeBadgeText(
       mode,
-      label ?? div.dataset.fsLabel,
+      label ?? div.dataset.vqLabel,
       errorMessage,
       isMulti,
       matchCount,
@@ -309,7 +309,7 @@ export function updateOverlayElement(
  * @param {string}      labelText
  */
 export function updateOverlayLabel(div, labelText) {
-  const badge = div.querySelector("[data-fs-badge]");
+  const badge = div.querySelector("[data-vq-badge]");
   if (badge) badge.textContent = _truncLabel(labelText);
 }
 
@@ -333,8 +333,8 @@ export function repositionOverlay(div, rect) {
 export function removeOverlayElement(shadowRoot, div) {
   if (div.parentNode === shadowRoot) {
     // Completed overlays fade out then remove
-    if (div.dataset.fsMode === "completed") {
-      div.style.animation = "fs-fadeout 400ms ease forwards";
+    if (div.dataset.vqMode === "completed") {
+      div.style.animation = "vq-fadeout 400ms ease forwards";
       setTimeout(() => {
         if (div.parentNode === shadowRoot) shadowRoot.removeChild(div);
       }, 420);

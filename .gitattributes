@@ -1,0 +1,37 @@
+# Line endings, settled once rather than per machine.
+#
+# Windows runners check out with core.autocrlf=true by default, which rewrites
+# every LF to CRLF in the working tree. Prettier's endOfLine is "lf", so the
+# format gate then reported 210 files as badly formatted on Windows while
+# passing on Linux — a red build caused entirely by the checkout, with nothing
+# in the diff to fix.
+#
+# `eol=lf` checks text files out as LF everywhere, so both platforms see the
+# bytes that are actually committed. Nothing in this project needs CRLF: the
+# extension is loaded by Chrome, and the only .cmd or .ps1 files are npm's own
+# inside node_modules, which is not tracked.
+* text=auto eol=lf
+
+# Binary, so git never inspects or rewrites a byte. Without this a font or a
+# PNG that happens to look like text to git's heuristic can be corrupted by
+# normalisation — and a corrupted .woff2 fails silently as a missing glyph.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.pdf   binary
+*.zip   binary
+
+# Generated, and not worth reading in a diff or counting as authored code.
+package-lock.json  -diff linguist-generated
+site/package-lock.json -diff linguist-generated
+
+# Mirrored third-party pages, kept verbatim so the challenge suite does not
+# depend on a site being up. They are not this project's code.
+e2e/challenges/pages/** linguist-vendored

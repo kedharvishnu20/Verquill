@@ -18,7 +18,7 @@
 // comparison that refuses half its own inputs is worse than one that does not
 // exist.
 //
-// A missing right-hand side must not read as a match. `fsTrim(null)` is the
+// A missing right-hand side must not read as a match. `vqTrim(null)` is the
 // empty string, so without a guard an empty left side "equals" an element that
 // is not there at all.
 import test from "node:test";
@@ -267,7 +267,7 @@ const both = (condition, over = {}) =>
 test("the Node script reads the second element before the test", () => {
   const src = emitNode(both("number-lt"));
   assert.match(src, /const _loc2 = page\.locator\('\.list'\);/);
-  assert.match(src, /const _rhs = await fsText\(_loc2\);/);
+  assert.match(src, /const _rhs = await vqText\(_loc2\);/);
   assert.match(
     src,
     /if \(_rhs !== null &&/,
@@ -275,7 +275,7 @@ test("the Node script reads the second element before the test", () => {
   );
   assert.match(
     src,
-    /fsNumber\(_rhs\)/,
+    /vqNumber\(_rhs\)/,
     "the right-hand side must go through the same number reader as the left",
   );
 });
@@ -283,16 +283,16 @@ test("the Node script reads the second element before the test", () => {
 test("the Node script reads the attribute when the condition is about one", () => {
   assert.match(
     emitNode(both("attr-equals", { attr: "href" })),
-    /const _rhs = await fsAttr\(_loc2, 'href'\);/,
+    /const _rhs = await vqAttr\(_loc2, 'href'\);/,
   );
 });
 
 test("the Python script does the same thing", () => {
   const src = emitPython(both("number-lt"));
   assert.match(src, /_loc2 = page\.locator\("\.list"\)/);
-  assert.match(src, /_rhs = await fs_text\(_loc2\)/);
+  assert.match(src, /_rhs = await vq_text\(_loc2\)/);
   assert.match(src, /if _rhs is not None and/);
-  assert.match(src, /fs_number\(_rhs\)/);
+  assert.match(src, /vq_number\(_rhs\)/);
 });
 
 test("a branch comparing against a value exports exactly as it did", () => {

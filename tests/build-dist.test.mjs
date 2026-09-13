@@ -27,6 +27,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const ROOT = new URL("../", import.meta.url);
 const script = new URL("scripts/build-dist.mjs", ROOT);
@@ -41,11 +42,15 @@ let listing = [];
 
 test.before(() => {
   if (!existsSync(script)) return;
-  out = mkdtempSync(join(tmpdir(), "fs-dist-"));
+  out = mkdtempSync(join(tmpdir(), "vq-dist-"));
+  // fileURLToPath, not .pathname. On Windows a file:// URL's pathname is
+  // "/D:/a/Verquill/scripts/build-dist.mjs" — the leading slash makes it an
+  // invalid path, and passing it as `cwd` made spawnSync report ENOENT
+  // against node.exe itself, which points at everything except the cause.
   const result = execFileSync(
     process.execPath,
-    [script.pathname, "--out", out],
-    { cwd: new URL(".", ROOT).pathname, encoding: "utf8" },
+    [fileURLToPath(script), "--out", out],
+    { cwd: fileURLToPath(new URL(".", ROOT)), encoding: "utf8" },
   );
   listing = result.split("\n");
 });

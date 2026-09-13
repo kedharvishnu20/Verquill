@@ -1,0 +1,111 @@
+# Turn a tag into a zip somebody can upload.
+#
+# This workflow deliberately stops one step short of publishing. Uploading to
+# the Chrome Web Store needs an OAuth client, a refresh token and a long-lived
+# secret in this repository — and a secret that can publish an extension to
+# every existing user is a larger thing to hold than a manual upload is a
+# burden. When that trade changes, the step to add is documented in
+# docs/STORE_LISTING.md.
+#
+# What it does do is remove every way the manual upload can go wrong: the zip
+# is built from a clean checkout by the same script a contributor runs, its
+# version is checked against the tag, and the full gate suite runs before any
+# of it.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or commit to package"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package and verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: npm ci
+
+      # The same gates CI runs. A tag is the worst possible moment to discover
+      # that the tree was red, and re-running them costs a minute.
+      - name: Syntax
+        run: npm run check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Unit tests
+        run: npm test
+
+      # The tag says what version this is. The manifest says what version the
+      # browser will report. A release where those disagree produces an update
+      # that users never receive, because Chrome only takes a higher version —
+      # and nothing about the upload says so.
+      - name: The tag and the manifest agree
+        run: |
+          tag="${{ github.event.inputs.ref || github.ref_name }}"
+          tag="${tag#v}"
+          manifest=$(node -p "require('./manifest.json').version")
+          pkg=$(node -p "require('./package.json').version")
+          echo "tag=$tag manifest=$manifest package=$pkg"
+          if [ "$tag" != "$manifest" ] || [ "$manifest" != "$pkg" ]; then
+            echo "::error::tag $tag, manifest $manifest, package.json $pkg — all three must match"
+            exit 1
+          fi
+
+      - name: Build the package
+        run: npm run build
+
+      # build-dist.mjs already proves every manifest file is present and every
+      # import inside the package resolves to another packaged file. This only
+      # confirms the artefact exists and is not implausibly small, which is the
+      # failure a silent build script would otherwise hand to a store reviewer.
+      - name: The zip is real
+        run: |
+          zip=$(ls verquill-*.zip)
+          size=$(stat -c%s "$zip")
+          echo "$zip is $size bytes"
+          [ "$size" -gt 100000 ] || { echo "::error::$zip is too small to be the extension"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension-package
+          path: verquill-*.zip
+          retention-days: 30
+
+      # A draft, not a published release. The notes are written by a person —
+      # CHANGELOG.md in this repository is prose that explains why, and a
+      # generated commit list is not a substitute for it.
+      - name: Draft the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" verquill-*.zip \
+            --draft \
+            --title "${{ github.ref_name }}" \
+            --notes "Draft. Paste the relevant section of CHANGELOG.md here before publishing."

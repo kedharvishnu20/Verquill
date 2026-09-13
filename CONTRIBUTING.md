@@ -106,13 +106,13 @@ it matters — why it is built the way it is. Several record a decision that loo
 wrong until you know the constraint. Keep that up; the docblocks that were left
 to drift are what made this codebase hard to trust.
 
-`docs/ISSUE_AUDIT.md` is the inventory: 152 findings, what is fixed, what is
-open, and what was left alone on purpose. Read it before trusting any claim
-about how something works.
+`docs/ISSUE_AUDIT.md` is the inventory: 192 findings, all now fixed, and why
+each was fixed the way it was. Read it before trusting any claim about how
+something works — including a claim in this file.
 
 ## Conventions
 
-- Prettier, checked in CI-style by `npm run format:check`.
+- Prettier, enforced by `npm run format:check` in CI.
 - ES modules everywhere except `content/injector.js` and
   `content/page-sniffer.js`, which are classic scripts and cannot import.
 - No dependencies in the extension. If you need a library, you probably need a

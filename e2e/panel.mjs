@@ -113,7 +113,7 @@ test("the board survives a reload, because the step was saved", async () => {
   // from the click handler, so reloading straight away raced it and failed
   // intermittently — on timing, not on behaviour, which is the worst kind of
   // red.
-  // The board is stored per tab — `fs_active_pipeline_<tabId>` (E-13) — so
+  // The board is stored per tab — `vq_active_pipeline_<tabId>` (E-13) — so
   // waiting on the bare key waits forever. Wait for whichever key the panel
   // actually wrote.
   await env.panel.waitForFunction(
@@ -123,7 +123,7 @@ test("the board survives a reload, because the step was saved", async () => {
           resolve(
             Object.entries(all).some(
               ([k, v]) =>
-                k.startsWith("fs_active_pipeline") &&
+                k.startsWith("vq_active_pipeline") &&
                 (v?.steps ?? []).length > 0,
             ),
           ),

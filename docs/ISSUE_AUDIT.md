@@ -143,9 +143,12 @@ decision:
 | J-01 … J-05 | _this batch_ | WAIT's element and DOM-settle modes reachable at last; infinite scroll; pagination that knows when the pages run out; navigation that waits for the page; the seven step types that had no configuration UI |
 | F-08, G-09, H-11 | _earlier commits_ | Fixed as a side effect and only noted in their own entries: F-08 by the `overlay:reloadPrefs` handler in `9502845`, G-09 by the shared row formatter in `c7ccc95`, H-11 by nested template resolution in `7b7d669`. Listed here so the count reconciles |
 
-**Still open: nothing.** 191 of 192 findings fixed; A-07 (a phantom `FORM_FILL`
-step type) is the one left by decision. A-06 was a third — the dead captcha detector — and
-is now closed by K-02. The count grew from the original 126 because four
+**Still open: nothing.** 192 of 192 findings fixed. A-07 (a phantom `FORM_FILL`
+step type) was the last one left standing by decision, and is now closed too:
+the gate was rewritten to scan extracted rows rather than a step type that had
+never existed, and `field-auto-mapper.js` was deleted with its one useful part
+moved into `utils/levenshtein.js`. A-06, the dead captcha detector, was closed
+earlier by K-02. The count grew from the original 126 because four
 findings were discovered while testing the fixes for others and added to the
 audit rather than fixed silently — A-10 (a cached IndexedDB failure), A-11 (PDF
 stream framing), A-12 (`EXPORT` downloading nothing at all) and A-13 (every page
@@ -257,7 +260,7 @@ The ethics engine enforces hard blocks on `FORM_FILL` (`ethics-engine.js` — pa
 
 - `FORM_FILL` is **not** in `STEP_REGISTRY` (`pipeline-builder.js:15`) — no way to create one
 - `injector.js` `_executeStep` has no `FORM_FILL` case
-- `_formFillRow()` (`injector.js:1152`) is only reachable via an `FS_FORM_FILL_ROW` postMessage that nothing dispatches
+- `_formFillRow()` (`injector.js:1152`) is only reachable via an `VQ_FORM_FILL_ROW` postMessage that nothing dispatches
 
 So `content/form-filler.js` (456 lines, 8 input handlers, React-fiber hack) and `content/field-auto-mapper.js` (333 lines) are both dead, and every `FORM_FILL`-dependent ethics gate is a no-op. The `FILL` step that _does_ exist is a much simpler, unrelated implementation.
 
@@ -341,7 +344,7 @@ Verified before fixing: an authored cross-origin `NAVIGATE` was `BLOCKED`; the s
 
 ### B-05 · HIGH · `AUTO_EXTRACT`'s `extractType` options are fiction
 
-The dropdown offers "Product Page", "Article / Blog Post" and "Product Listing / Grid". `smart-extractor.js`'s `fsSmartExtract(config)` reads only `confidenceThreshold` — there is no article or listing extractor. Choosing either silently runs the product extractor.
+The dropdown offers "Product Page", "Article / Blog Post" and "Product Listing / Grid". `smart-extractor.js`'s `vqSmartExtract(config)` reads only `confidenceThreshold` — there is no article or listing extractor. Choosing either silently runs the product extractor.
 
 ### B-06 · HIGH · `confidenceThreshold` is mislabelled in the UI
 
@@ -474,7 +477,7 @@ Should be `document.documentElement.scrollHeight`; `body` height is wrong on man
 
 `content/injector.js:129-131` — the listener's only guard is `if (event.source !== window) return;`, which **every script running in the page satisfies**. The module docblock claims _"All postMessage events are source-checked against `window.location.origin` to prevent page scripts from spoofing our event protocol."_ That check does not exist.
 
-A hostile page can post `FS_STEP_EXEC` and invoke `CLICK`, `FILL`, `SELECT`, `DRAG_DROP`, `NAVIGATE`, `UPLOAD_ACTIVITY`, `QUERY_ELEMENTS` and the selector picker at will, on any site the user visits. Results are echoed back with `window.postMessage(..., "*")`, so the page reads them too. Add a nonce or drop the `window.postMessage` transport entirely (the `chrome.runtime` bridge is the one actually in use).
+A hostile page can post `VQ_STEP_EXEC` and invoke `CLICK`, `FILL`, `SELECT`, `DRAG_DROP`, `NAVIGATE`, `UPLOAD_ACTIVITY`, `QUERY_ELEMENTS` and the selector picker at will, on any site the user visits. Results are echoed back with `window.postMessage(..., "*")`, so the page reads them too. Add a nonce or drop the `window.postMessage` transport entirely (the `chrome.runtime` bridge is the one actually in use).
 
 ### C-02 · HIGH · The network sniffer hooks `fetch`/`XHR` on every site, always
 
@@ -530,7 +533,7 @@ Three content scripts run on every page the user visits, for a tool that operate
 
 ### D-01 · HIGH · Run state is memory-only, contradicting the documented design
 
-`service-worker.js:98`: `const _runStates = new Map()`. The file's own docblock says _"All state is persisted to storage before every await to survive SW termination."_ It is not. The only persisted artefact is `fs_run_log`, which nothing reads. If the SW is killed mid-run (routine in MV3), the run vanishes: no completion event, no error, the side panel's Stop button stays visible forever, and rows already in IDB are orphaned under a `runId` the UI has forgotten.
+`service-worker.js:98`: `const _runStates = new Map()`. The file's own docblock says _"All state is persisted to storage before every await to survive SW termination."_ It is not. The only persisted artefact is `vq_run_log`, which nothing reads. If the SW is killed mid-run (routine in MV3), the run vanishes: no completion event, no error, the side panel's Stop button stays visible forever, and rows already in IDB are orphaned under a `runId` the UI has forgotten.
 
 ### D-02 · HIGH · The 20-second heartbeat does not do what it claims
 
@@ -687,7 +690,7 @@ Every file is re-rendered on each change, with no aggregate size indicator to wa
 | `utils/levenshtein.js`         | 108   | No importer — `field-auto-mapper.js` re-implements Levenshtein locally at line 53.        |
 | `content/smart-sleep.js`       | 164   | Never imported; `injector.js` re-implements `_sleep`/`_waitForSelector`/`_waitDOMStable`. |
 | `content/field-auto-mapper.js` | 333   | Never imported (see A-07).                                                                |
-| `content/form-filler.js`       | 456   | Only via the unreachable `FS_FORM_FILL_ROW` path (see A-07).                              |
+| `content/form-filler.js`       | 456   | Only via the unreachable `VQ_FORM_FILL_ROW` path (see A-07).                              |
 
 `exporters/stream-writer.js` is imported only by the dead `text-exporters.js`, making it transitively dead too.
 
@@ -807,7 +810,7 @@ Two smaller things came out of building it.
 **The emitted scripts could not launch on this machine, or on any like it.**
 Headless Playwright reaches for a separate "headless shell" build, so a
 computer carrying full Chromium but not that variant fails at launch with a
-message about installing browsers. Both emitters now honour `FS_BROWSER_PATH`,
+message about installing browsers. Both emitters now honour `VQ_BROWSER_PATH`,
 and the runner fills it in from what is actually installed. That is a fix to
 every exported script, not only to this tool.
 
@@ -1569,7 +1572,7 @@ element matched … this looks like the last page".
 
 ### J-28 · BLOCKER · The sniffer relay broke the content script it needed
 
-_Reported while testing J-26: `Uncaught SyntaxError: Identifier 'FS_ORIGIN' has
+_Reported while testing J-26: `Uncaught SyntaxError: Identifier 'VQ_ORIGIN' has
 already been declared`. Introduced by J-26's own fix._
 
 Registering `injector.js` as a content script for the sniffer meant it could be
@@ -2173,7 +2176,7 @@ meant it", and a run payload is rebuilt every time Run is pressed. The
 attestation — you own the site, you have permission, or the account is your own
 — is given once per domain on the step's own card and stored the way every other
 durable per-domain setting in this codebase is, in `chrome.storage.local` under
-`fs_captcha_attest_v1`. It covers that domain and no other. The panel's copy is
+`vq_captcha_attest_v1`. It covers that domain and no other. The panel's copy is
 a mirror for rendering; the worker's is the one the step consults, so a stale
 mirror can only ever draw the wrong checkbox, never let a step run.
 
@@ -2727,9 +2730,9 @@ stops there and hands back what it has, the same shape K-20's numbered
 paginator already chose when a page will not open. Only the first page
 failing fails the whole step, same as before this existed.
 
-Both emitters gained the equivalent: `fs_api_session()` / `fsApiFetch` carry
-K-24's retry in the exported script, `fs_dig`/`fsDig` and
-`fs_api_rows`/`fsApiRows` mirror `_resolvePath` and rowsPath, and the three
+Both emitters gained the equivalent: `vq_api_session()` / `vqApiFetch` carry
+K-24's retry in the exported script, `vq_dig`/`vqDig` and
+`vq_api_rows`/`vqApiRows` mirror `_resolvePath` and rowsPath, and the three
 pagination shapes are each a small loop rather than a library — Python's
 `requests.Session` already parses `Link` into `.links`, so link-mode costs
 nothing extra there. The same three refusals the worker enforces (unknown

@@ -6,13 +6,16 @@ tab, and export the results.
 
 No build step. No bundler. Plain ES modules, loaded directly by Chrome.
 
-> **Status.** A full audit found 152 issues; 149 are fixed and three are left
-> alone on purpose (three subsystems that work but that nothing calls — the
-> reasoning is in the audit). Every fix landed with regression tests that were
-> run against the pre-fix code first to confirm they failed: 660 tests, from
-> zero, plus 69 end-to-end checks in a real Chromium with the extension loaded —
-> which is how four findings were caught, among them an `EXPORT` that had never
-> downloaded anything and page steps that failed after every navigation. [`docs/ISSUE_AUDIT.md`](docs/ISSUE_AUDIT.md) is the inventory,
+> **Status.** A full audit found 192 issues; all 192 are now fixed, including
+> the three subsystems that were originally left unreachable on purpose. Every
+> fix landed with regression tests run against the pre-fix code first to confirm
+> they failed: **1422 unit tests**, from zero, plus **85 end-to-end checks** in a
+> real Chromium with the extension loaded and **8 against mirrored real pages** —
+> which is how several findings were caught that no unit test could reach, among
+> them an `EXPORT` that had never downloaded anything and page steps that failed
+> after every navigation.
+>
+> [`docs/ISSUE_AUDIT.md`](docs/ISSUE_AUDIT.md) is the inventory,
 > [`CHANGELOG.md`](CHANGELOG.md) the summary, and
 > [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) explains why the parts are
 > shaped the way they are.
@@ -32,11 +35,22 @@ Chrome 120 or newer.
 
 ```bash
 npm install     # jsdom + fake-indexeddb, for the tests only
-npm test        # 660 tests, ~35s, no browser needed
-npm run e2e     # 69 checks in a real Chromium with the extension loaded
+npm test        # 1404 tests, ~50s, no browser needed
+npm run e2e     # 85 checks in a real Chromium with the extension loaded
 npm run check   # parses every source file as an ES module
-npm run format  # prettier; `npm run format:check` in CI
+npm run format  # prettier; `npm run format:check` is the gate
+npm run build   # packages the extension for the store
 ```
+
+Every one of those runs in CI on Linux and Windows for each push and pull
+request (`.github/workflows/ci.yml`), so a gate that passes locally is the same
+gate that gates a merge. The browser suites are slower and run nightly
+(`.github/workflows/browser.yml`) rather than blocking a review.
+
+Python 3 is an optional test dependency: a handful of tests compile the Python
+that `script-gen/` emits, which is the only way to know the generated script is
+valid rather than merely well-shaped. Without it those tests skip, visibly, and
+the rest still run. CI installs it so the skip never hides anything there.
 
 The extension itself has no dependencies and nothing to build — `npm install`
 is only for the test suite.
@@ -86,8 +100,13 @@ background/                    Service worker
   service-worker.js            Pipeline orchestrator, message bus, export
   ethics-engine.js             7 pre-run gates
   llm-extractor.js             AUTO_EXTRACT layer 3, through the AI gateway
-  api-key-manager.js           AES-GCM key store; captcha dispatch (unreachable)
-  proxy-manager.js             Proxy pool (unreachable — see A-05)
+  api-key-manager.js           AES-GCM key store; captcha-solver dispatch
+  gateway-config.js            Provider, model and base URL for the AI gateway
+  header-rules.js              declarativeNetRequest rules behind SET_HEADERS
+  session-store.js             Cookies and storage captured by SESSION
+  scheduler.js                 chrome.alarms-backed local schedules
+  optional-permissions.js      Runtime permission requests, asked for on use
+  proxy-manager.js             Proxy pool, health checks, per-run rotation
   rate-limiter.js              Token bucket; paces every acting step
 
 content/                       Page context
@@ -98,9 +117,10 @@ content/                       Page context
   page-sniffer.js              fetch/XHR capture, injected only during a run
   overlay-engine.js            Scrape-zone overlays
   overlay-renderer.js          Per-zone overlay elements
-  form-filler.js               (unreachable — see A-07)
-  field-auto-mapper.js         (unreachable — see A-07)
-  captcha-detector.js          (unreachable — see A-06)
+  form-filler.js               FILL: typing, selects, checkboxes, uploads
+  captcha-check.js             Challenge detection for SOLVE_CAPTCHA
+  page-json.js                 PAGE_JSON: read a JSON payload out of the page
+  session-storage.js           Reads and restores localStorage / sessionStorage
 
 sidepanel/
   index.html                   UI and all styles; fonts bundled locally
@@ -114,13 +134,29 @@ utils/
   pdf-text.js                  PDF text extraction, no dependencies
   logger.js                    Structured logger; redacts by key name
   color-utils.js               Zone colours, WCAG contrast
-  levenshtein.js               Similarity scoring for field-auto-mapper
+  levenshtein.js               Similarity scoring, used by extraction-schema
+  pipeline-capabilities.js     What a pipeline can do — the one security model
+  ai-gateway.js                Anthropic · OpenAI · Gemini · any local server
+  extraction-schema.js         AUTO_EXTRACT field lists and key mapping
+  extraction-grounding.js      Refuses a value that is not on the page
+  extraction-provenance.js     Which layer answered, and how sure it was
+  selector-learning.js         Turns a verified AI answer into an EXTRACT step
+  value-transforms.js          trim · number · date · regex, one definition
+  row-dedupe.js                Bounded, LRU-evicted seen-key set for DEDUPE
+  loop-items.js                LOOP over a list, a range or extracted rows
+  conditions.js                IF_ELSE predicates
+  assertions.js                ASSERT checks
+  captcha-solvers.js           2captcha · anti-captcha clients
+  sniffer-filter.js            What page-sniffer keeps and what it drops
+  pdf-tables.js                Table reconstruction for PDF_EXTRACTION
 
 checkpoint/
   idb-schema.js                Owns the IndexedDB schema
   row-buffer.js                Buffer rows, flush every 50 rows or 30s
   cursor-store.js              Run position for resume
   resume-manager.js            Incomplete-run detection
+  dataset-store.js             Rows on disk, so a long run does not hold them
+  ai-cache.js                  Keyed on url + schema + page hash; LRU-bounded
 
 exporters/
   row-formatters.js            CSV · JSON · JSONL · TSV · XML · Markdown
@@ -136,20 +172,29 @@ script-gen/
   python-emitter.js            AST → Python (playwright)
   node-emitter.js              AST → Node (playwright)
 
+site/                          The community registry website (deployed apart)
 mcp/                           Standalone MCP server (see mcp/README.md)
-tests/                         660 tests; node:test, jsdom, fake-indexeddb
-e2e/                           69 checks against a real Chromium
+tests/                         1422 tests; node:test, jsdom, fake-indexeddb
+e2e/                           85 checks against a real Chromium, plus 8 on
+                               mirrored real pages
 scripts/check-syntax.mjs       Parses every source file
+scripts/build-dist.mjs         Packages the extension zip
 docs/                          Audit, architecture, manual, template guide
 examples/                      Pipeline JSON you can import
 ```
 
-Three modules are still marked unreachable: `form-filler.js`,
-`field-auto-mapper.js` and `captcha-detector.js`. They work; nothing in the
-product calls them. Each says so in its own header, with the audit finding that
-explains why, and the decision not to delete or enable them is recorded in
-[`docs/ISSUE_AUDIT.md`](docs/ISSUE_AUDIT.md). Everything else the audit listed
-as dead has since been deleted or wired up — see the F-01 table there.
+Nothing in this tree is unreachable. The three modules the audit left alone —
+`form-filler.js`, `field-auto-mapper.js` and `captcha-detector.js` — have since
+been resolved rather than left marked: `form-filler.js` is loaded on demand by
+`injector.js` behind `FILL`, `captcha-detector.js` was replaced by the smaller
+`captcha-check.js` that `SOLVE_CAPTCHA` actually uses, and
+`field-auto-mapper.js` was deleted, with its one useful part — `fieldMatchScore`
+in `utils/levenshtein.js` — now called by `utils/extraction-schema.js`.
+
+That property is enforced rather than asserted: `npm run lint` fails on a
+reference to a name that does not exist, and `tests/dead-code-and-defects.test.mjs`
+fails if a second copy of a shared function appears. The history is in
+[`docs/ISSUE_AUDIT.md`](docs/ISSUE_AUDIT.md) — see the F-01 table.
 
 ---
 
@@ -372,7 +417,7 @@ script ran and quietly did less than the pipeline.
 
 Python or Node — pick the language in the toolbar next to the button.
 
-**Credentials** are replaced with `__FS_ENV__NAME__` markers that both generated
+**Credentials** are replaced with `__VQ_ENV__NAME__` markers that both generated
 scripts resolve from the environment at run time, so nothing is written into the
 file. Detection is by config key name, by HTTP header name (`Authorization`,
 `X-API-Key`, `Cookie`…), and by password-shaped selectors. A password typed into
@@ -401,13 +446,20 @@ See [`mcp/README.md`](mcp/README.md).
 
 ## Docs
 
-| File                                                               | What it is                            |
-| ------------------------------------------------------------------ | ------------------------------------- |
-| [`docs/ISSUE_AUDIT.md`](docs/ISSUE_AUDIT.md)                       | Full issue inventory, with fix status |
-| [`docs/verquill-master-manual.md`](docs/verquill-master-manual.md) | Per-function reference (partly stale) |
-| [`docs/JinjaTemplateGuide.md`](docs/JinjaTemplateGuide.md)         | Template syntax                       |
-| [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md)           | Platform constraints                  |
-| [`docs/TEST_CHECKLIST.md`](docs/TEST_CHECKLIST.md)                 | Manual browser checks                 |
+| File                                                               | What it is                                               |
+| ------------------------------------------------------------------ | -------------------------------------------------------- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                     | Why the parts are shaped the way they are                |
+| [`docs/ISSUE_AUDIT.md`](docs/ISSUE_AUDIT.md)                       | Full issue inventory, all 192 with fix status            |
+| [`docs/CAPABILITY_REVIEW.md`](docs/CAPABILITY_REVIEW.md)           | Gaps — things not broken because never built             |
+| [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md)           | What it does not do, and why not                         |
+| [`docs/verquill-master-manual.md`](docs/verquill-master-manual.md) | Per-module reference; links and exports checked by test  |
+| [`docs/SESSIONS_AND_HEADERS.md`](docs/SESSIONS_AND_HEADERS.md)     | What SESSION and SET_HEADERS buy, and what they cost     |
+| [`docs/JinjaTemplateGuide.md`](docs/JinjaTemplateGuide.md)         | Template syntax                                          |
+| [`docs/TEST_CHECKLIST.md`](docs/TEST_CHECKLIST.md)                 | The manual checks automation cannot reach                |
+| [`docs/STORE_LISTING.md`](docs/STORE_LISTING.md)                   | Store copy and a justification per permission            |
+| [`SECURITY.md`](SECURITY.md)                                       | What counts as a vulnerability, and the trust boundaries |
+| [`PRIVACY.md`](PRIVACY.md)                                         | Where data lives and what leaves the machine             |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)                         | Argue with the code, not the person                      |
 
 ---
 

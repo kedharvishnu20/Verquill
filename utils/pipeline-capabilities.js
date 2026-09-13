@@ -113,21 +113,80 @@ export function walkSteps(steps, out = []) {
   return out;
 }
 
-/** Header names a SET_HEADERS step declares. Names only — never the values. */
-function headerNamesOf(step) {
+/**
+ * The headers a step declares, as [name, value] pairs.
+ *
+ * Values are read only to answer "is this one actually filled in" — an empty
+ * `Authorization:` is not a leaked credential and should not be reported as
+ * one. Nothing outside this module ever receives a value.
+ */
+function headerEntriesOf(step) {
   const raw = step?.config?.headers;
   if (typeof raw !== "string" || !raw.trim()) return [];
   // The field accepts JSON or `Name: value` lines, so read both shapes.
   try {
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") return Object.keys(parsed);
+    if (parsed && typeof parsed === "object") {
+      return Object.entries(parsed).map(([k, v]) => [k, String(v ?? "")]);
+    }
   } catch {
     /* not JSON; fall through to the line form */
   }
   return raw
     .split("\n")
-    .map((line) => line.split(":")[0]?.trim())
-    .filter(Boolean);
+    .map((line) => {
+      const at = line.indexOf(":");
+      if (at === -1) return [line.trim(), ""];
+      return [line.slice(0, at).trim(), line.slice(at + 1).trim()];
+    })
+    .filter(([name]) => name);
+}
+
+/** Header names a step declares. Names only — never the values. */
+function headerNamesOf(step) {
+  return headerEntriesOf(step).map(([name]) => name);
+}
+
+/**
+ * Credential material that must not be published.
+ *
+ * The import gate and the publish gate are asking different questions, and
+ * conflating them is how `scrubCredentials` came to remove nothing. Importing
+ * asks "can this pipeline hurt me if I run it", and an auth header alone is
+ * survivable — you are handing your own token to a site you chose. Publishing
+ * asks "is this safe to make public", where an auth header alone is the whole
+ * problem: a filled-in `Authorization` header goes into a public repository
+ * verbatim, and is a leaked credential the moment the commit lands.
+ *
+ * So this is deliberately stricter than `analyzePipeline`, and deliberately
+ * separate from it rather than a flag on it — the two callers want different
+ * answers and a shared "strict" boolean would eventually be passed wrongly.
+ *
+ * Covers API as well as SET_HEADERS: both keep a free-text headers field, and
+ * a token typed into either is equally public afterwards.
+ *
+ * @returns {Array<{stepId: string, stepType: string, headers: string[]}>}
+ *   Header *names* only. A report of a leaked secret must not repeat it.
+ */
+export function findPublishBlockers(pipeline) {
+  const found = [];
+  for (const step of walkSteps(pipeline?.steps)) {
+    if (step.type !== "SET_HEADERS" && step.type !== "API") continue;
+    const risky = headerEntriesOf(step)
+      .filter(([name, value]) => {
+        if (!value.trim()) return false; // declared but empty: nothing to leak
+        return AUTH_HEADER_NAMES.includes(name.toLowerCase());
+      })
+      .map(([name]) => name);
+    if (risky.length) {
+      found.push({
+        stepId: step.id || step.type,
+        stepType: step.type,
+        headers: risky,
+      });
+    }
+  }
+  return found;
 }
 
 /**

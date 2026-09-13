@@ -78,33 +78,4 @@ export async function createWriter(filename, mimeType) {
   };
 }
 
-/**
- * Write rows in chunks to avoid OOM.
- * @param {object[]}    rows
- * @param {string}      filename
- * @param {string}      mimeType
- * @param {function(object[], boolean): string} formatter
- *   - rows: current chunk, isFirst: whether this is the first chunk
- * @returns {Promise<void>}
- */
-export async function writeRowsChunked(rows, filename, mimeType, formatter) {
-  const writer = await createWriter(filename, mimeType);
-  try {
-    for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
-      const chunk = rows.slice(i, i + CHUNK_SIZE);
-      const isFirst = i === 0;
-      const isLast = i + CHUNK_SIZE >= rows.length;
-      await writer.write(formatter(chunk, isFirst, isLast));
-    }
-    await writer.close();
-    logger.info(MODULE, "write-complete", { filename, rows: rows.length });
-  } catch (err) {
-    logger.error(MODULE, "write-fail", { filename, error: err.message });
-    try {
-      await writer.close();
-    } catch {}
-    throw err;
-  }
-}
-
 // === END stream-writer.js ===

@@ -64,6 +64,13 @@ const INCLUDE_DIRS = [
   "utils",
 ];
 
+// `site/dist` was briefly on that list. It is Vite's build output for the
+// registry website: gitignored, absent on a clean clone, and named by nothing
+// in the manifest — so packaging crashed with ENOENT, and on a machine where
+// it happened to exist it would have shipped an entire React app Chrome never
+// loads into the store package. The website is a separate deployment; the test
+// below that asserts nothing under `site/` is packaged is what caught it.
+
 /** Loose files that belong in the package. */
 const INCLUDE_FILES = ["manifest.json", "LICENSE", "PRIVACY.md"];
 

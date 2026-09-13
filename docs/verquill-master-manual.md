@@ -1,9 +1,14 @@
 # Verquill Master Manual
 
-> **Partly stale.** Written against commit b2baae8 and not fully updated since.
-> Where it disagrees with the code, the code is right; where it disagrees with
-> [ISSUE_AUDIT.md](ISSUE_AUDIT.md), the audit is right. Sections 5, 7 and 8
-> describe functions that have since changed.
+> **Scope, and what is checked.** The file inventory and the per-module export
+> lists are verified against the tree by `tests/doc-drift.test.mjs`: every
+> `Source:` link resolves, and every documented export appears in the file it
+> is attributed to. Those two things cannot silently rot any more.
+>
+> The prose around them is not checked and is not generated. It describes
+> behaviour and intent, which no test can confirm, so where it disagrees with
+> the code the code is right — and the disagreement is a bug in this file worth
+> fixing rather than a note to leave standing.
 
 This is the single authoritative document for Verquill v3.
 
@@ -52,9 +57,6 @@ End-to-end runtime flow:
 - [background/api-key-manager.js](../background/api-key-manager.js)
 - [content/injector.js](../content/injector.js)
 - [content/form-filler.js](../content/form-filler.js)
-- [content/field-auto-mapper.js](../content/field-auto-mapper.js)
-- [content/captcha-detector.js](../content/captcha-detector.js)
-- [content/smart-sleep.js](../content/smart-sleep.js)
 
 ### 3.2 Pipeline and UI files
 
@@ -69,15 +71,12 @@ End-to-end runtime flow:
 - [checkpoint/cursor-store.js](../checkpoint/cursor-store.js)
 - [checkpoint/row-buffer.js](../checkpoint/row-buffer.js)
 - [checkpoint/resume-manager.js](../checkpoint/resume-manager.js)
-- [data-sources/csv-parser.js](../data-sources/csv-parser.js)
-- [data-sources/json-parser.js](../data-sources/json-parser.js)
 
 ### 3.4 Export and utility files
 
 - [exporters/text-exporters.js](../exporters/text-exporters.js)
 - [exporters/stream-writer.js](../exporters/stream-writer.js)
 - [utils/logger.js](../utils/logger.js)
-- [utils/deduplicator.js](../utils/deduplicator.js)
 - [utils/levenshtein.js](../utils/levenshtein.js)
 - [utils/color-utils.js](../utils/color-utils.js)
 
@@ -378,7 +377,7 @@ On `install`:
 
 ### 7.4 Heartbeat lifecycle
 
-`_startHeartbeat()` creates alarm `fs_sw_heartbeat` roughly every 20 seconds.
+`_startHeartbeat()` creates alarm `vq_sw_heartbeat` roughly every 20 seconds.
 
 Heartbeat listener:
 
@@ -410,7 +409,7 @@ Flow:
 2. Detect whether any step is `API_SNIFFER`.
 3. Build `runId`.
 4. Create `runState` and store it in `_runStates`.
-5. Persist `fs_run_log` in `chrome.storage.local`.
+5. Persist `vq_run_log` in `chrome.storage.local`.
 6. Run `runEthicsGates(...)`.
 7. On hard block, delete run state and throw `EthicsBlock`.
 8. On success, log warnings and start `_executePipeline(...)` asynchronously.
@@ -521,7 +520,7 @@ Source: [content/injector.js](../content/injector.js)
 
 ### 8.2 Core constants and state
 
-#### `FS_ORIGIN`
+#### `VQ_ORIGIN`
 
 - extension origin base used by the content runtime
 
@@ -549,11 +548,11 @@ Constant map of content-event names.
 
 #### In-page `window.postMessage`
 
-Incoming messages with `type` starting `FS_` are handled.
+Incoming messages with `type` starting `VQ_` are handled.
 
 Special case:
 
-- `FS_NETWORK_SNIFF` is forwarded to the service worker as `network:sniff`
+- `VQ_NETWORK_SNIFF` is forwarded to the service worker as `network:sniff`
 
 #### `chrome.runtime.onMessage`
 
@@ -719,7 +718,7 @@ Source: [ethics/robots-parser.js](../ethics/robots-parser.js)
 Key state and behavior:
 
 - `CACHE_TTL_MS = 15 minutes`
-- `FS_USER_AGENT = 'Verquill'`
+- `VQ_USER_AGENT = 'Verquill'`
 - `_cache` map stores parsed robots content
 
 Behavior:
@@ -745,7 +744,6 @@ Functions:
 
 - `scanRows(rows, limit)`
 - `scanText(text)`
-- `hasPII(rows)`
 - `summarizeFindings(findings)`
 
 ### 11.3 Ethics engine
@@ -817,7 +815,6 @@ Main exports:
 - `clearPool()`
 - `getPool()`
 - `setRotationMode(mode)`
-- `getRotationMode()`
 - `selectProxy(context)`
 - `testProxy(entry, retryCount)`
 - `testAllProxies(options)`
@@ -825,8 +822,6 @@ Main exports:
 - `rotateProxy(context)`
 - `_applyProxy(entry)`
 - `clearProxy()`
-- `exportHostsOnly()`
-- `getPoolSummary()`
 
 ### 12.2 Rate limiter
 
@@ -848,7 +843,6 @@ Main exports:
 - `acquire(domain, count)`
 - `backoff(domain, baseMs, maxMs, maxAttempts)`
 - `resetRetry(domain)`
-- `estimateReqPerHr(stepCount, timing)`
 
 ### 12.3 API key manager
 
@@ -934,44 +928,28 @@ Main exports:
 - `markRunCompleted(runId)`
 - `getResumePayload()`
 
-## 14. Data Parsing and Export
+## 14. Export
 
-### 14.1 CSV parser
+This chapter used to open with two data-parsing sections, `csv-parser.js` and
+`json-parser.js`. Both were complete, imported by nothing, and have been
+deleted — LOOP takes a pasted list or a dotted path into the run context
+instead (`utils/loop-items.js`).
 
-Source: [data-sources/csv-parser.js](../data-sources/csv-parser.js)
-
-Main exports:
-
-- `detectDelimiter(sample)`
-- `stripBOM(text)`
-- `parseLine(line, delimiter)`
-- `parseCSV(rawText, options)`
-- `streamParseCSV(file, onRows, options)`
-
-### 14.2 JSON parser
-
-Source: [data-sources/json-parser.js](../data-sources/json-parser.js)
-
-Main exports:
-
-- `parseJSON(text)`
-- `parseJSONL(text)`
-- `streamParseJSON(file, onRows)`
-
-### 14.3 Text exporters
+### 14.1 Text exporters
 
 Source: [exporters/text-exporters.js](../exporters/text-exporters.js)
 
 Main exports:
 
-- `exportCSV(rows, filename)`
-- `exportJSON(rows, filename)`
-- `exportJSONL(rows, filename)`
-- `exportTSV(rows, filename)`
-- `exportXML(rows, filename)`
-- `exportMarkdown(rows, filename)`
+- `exportRows(rows, format, filename)`
 
-### 14.4 Stream writer
+This module used to carry six per-format wrappers (`exportCSV`, `exportJSON`,
+`exportJSONL`, `exportTSV`, `exportXML`, `exportMarkdown`). They were
+declarations and manual entries and nothing else — the panel has always called
+`exportRows` with a format argument. They are gone; formatting itself lives in
+`row-formatters.js`.
+
+### 14.2 Stream writer
 
 Source: [exporters/stream-writer.js](../exporters/stream-writer.js)
 
@@ -982,7 +960,6 @@ Important constants:
 Main exports:
 
 - `createWriter(filename, mimeType)`
-- `writeRowsChunked(rows, filename, mimeType, formatter)`
 
 ## 15. Utility Modules
 
@@ -997,23 +974,7 @@ Important state:
 - `_buffer`
 - `MAX_BUFFER`
 
-### 15.2 Deduplicator
-
-Source: [utils/deduplicator.js](../utils/deduplicator.js)
-
-Important state:
-
-- `_seen`
-- `_totalDuplicates`
-
-Main exports:
-
-- `isDuplicate(row, keyColumns)`
-- `reset()`
-- `getStats()`
-- `deduplicateRows(rows, keyColumns)`
-
-### 15.3 Levenshtein and matching
+### 15.2 Levenshtein and matching
 
 Source: [utils/levenshtein.js](../utils/levenshtein.js)
 
@@ -1025,7 +986,7 @@ Main exports:
 - `jaccardSimilarity(setA, setB)`
 - `fieldMatchScore(colName, fieldSignal)`
 
-### 15.4 Color utilities
+### 15.3 Color utilities
 
 Source: [utils/color-utils.js](../utils/color-utils.js)
 
@@ -1037,8 +998,6 @@ Main exports:
 - `relativeLuminance(hex)`
 - `badgeTextColor(backgroundHex)`
 - `hexToRGBA(hex, opacity)`
-- `darken(hex, factor)`
-- `isValidHex(str)`
 
 ## 16. Full Activity Contracts
 
@@ -1058,8 +1017,6 @@ User actions:
 Internal actions:
 
 - step is mutated in `_pipeline`
-- `saveState()` persists immediately
-- `renderPipeline()` redraws the board
 
 ### 16.2 Upload pipeline
 

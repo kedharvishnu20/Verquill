@@ -69,7 +69,7 @@ test("switching with no run still swaps the pipeline", () => {
     panelSrc,
     /chrome\.tabs\.onActivated\.addListener\(async \(activeInfo\) => \{[\s\S]*?\n  \}\);/,
   );
-  assert.match(fn, /SK\.PIPELINE = `fs_active_pipeline_\$\{_tabId\}`/);
+  assert.match(fn, /SK\.PIPELINE = `vq_active_pipeline_\$\{_tabId\}`/);
   assert.match(fn, /renderPipeline\(\)/);
 });
 
@@ -85,8 +85,8 @@ test("config inputs are not replaced to rebind them", () => {
     "cloning and swapping destroyed focus, caret and selection",
   );
   assert.ok(!/replaceChild/.test(fn));
-  assert.match(fn, /if \(el\.dataset\.fsBound === "1"\) return;/, "bound once");
-  assert.match(fn, /el\.dataset\.fsBound = "1";/);
+  assert.match(fn, /if \(el\.dataset\.vqBound === "1"\) return;/, "bound once");
+  assert.match(fn, /el\.dataset\.vqBound = "1";/);
 });
 
 test("a targeted re-render puts the caret back", () => {

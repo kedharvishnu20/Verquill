@@ -23,7 +23,7 @@ import { getApiKey } from "./api-key-manager.js";
 import { GATEWAY_PROVIDERS } from "../utils/ai-gateway.js";
 
 /** Where the panel's provider/model/baseUrl choice is stored. */
-export const GATEWAY_STORAGE_KEY = "fs_gateway_config_v1";
+export const GATEWAY_STORAGE_KEY = "vq_gateway_config_v1";
 
 /**
  * The gateway config to use, or null when nothing is set up.

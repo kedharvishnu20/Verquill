@@ -202,7 +202,7 @@ test("stopping clears the interval as well as the alarm", () => {
   const fn = swSrc.match(/function _stopHeartbeat\(\) \{[\s\S]*?\n\}/)[0];
   assert.match(fn, /clearInterval\(_keepaliveTimer\)/);
   assert.match(fn, /_keepaliveTimer = null/, "so it can be started again");
-  assert.match(fn, /chrome\.alarms\.clear\("fs_sw_heartbeat"\)/);
+  assert.match(fn, /chrome\.alarms\.clear\("vq_sw_heartbeat"\)/);
 
   assert.match(swSrc, /if \(_runStates\.size === 0\) _stopHeartbeat\(\);/);
 });

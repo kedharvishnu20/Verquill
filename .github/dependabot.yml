@@ -1,0 +1,46 @@
+# The extension itself has no dependencies. Everything below is tooling, and
+# tooling is where a supply-chain problem reaches a maintainer's machine rather
+# than a user's browser — which makes it lower stakes and no less worth
+# watching.
+#
+# Monthly, not weekly. A pull request nobody reads is not a security control,
+# and five of them a week is how that happens. Grouped for the same reason: one
+# pull request that bumps the dev tooling is reviewable; seven are triage.
+version: 2
+
+updates:
+  # Test and build tooling: prettier, oxlint, playwright, jsdom, fake-indexeddb.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      dev-tooling:
+        patterns: ["*"]
+    commit-message:
+      prefix: "deps"
+
+  # The registry website is a separate deployment with a real dependency tree
+  # (React, Vite). It is also the only part of this project that runs code in
+  # someone else's browser from a server, so its updates are kept separate
+  # rather than grouped with the extension's tooling.
+  - package-ecosystem: npm
+    directory: /site
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      site:
+        patterns: ["*"]
+    commit-message:
+      prefix: "deps(site)"
+
+  # Actions are pinned by major tag (actions/checkout@v4). That is a moving
+  # target inside the major, so this catches the majors.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"

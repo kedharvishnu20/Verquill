@@ -9,12 +9,12 @@
  *   picker overlay) doesn't conflict with page styles.
  *
  *   Trust boundary: the background is trusted, the page is not. The only
- *   window.postMessage input accepted is FS_NETWORK_SNIFF from
+ *   window.postMessage input accepted is VQ_NETWORK_SNIFF from
  *   page-sniffer.js, and it is treated as page-controlled data — validated and
  *   clamped, never used to choose an action.
  *
  *   This file must stay under 40 KB. Heavy logic lives in form-filler.js,
- *   field-auto-mapper.js, etc. — which are injected via chrome.scripting
+ *   overlay-engine.js, etc. — which are injected via chrome.scripting
  *   on demand, not bundled here.
  *
  * @dependencies (none — minimal entry point)
@@ -29,7 +29,7 @@
  * isolated world's global scope, and that binding is created when the script is
  * *instantiated* — before a single statement runs. So evaluating this file a
  * second time in the same document throws
- * `Identifier 'FS_ORIGIN' has already been declared` before any runtime guard
+ * `Identifier 'VQ_ORIGIN' has already been declared` before any runtime guard
  * can look at it, and the whole injection is lost.
  *
  * That used to be rare, because the only path in pinged first and skipped. It
@@ -46,20 +46,20 @@
   if (globalThis.__fsInjected) return;
   globalThis.__fsInjected = true;
 
-  const FS_ORIGIN = chrome.runtime.getURL("").replace(/\/$/, "");
+  const VQ_ORIGIN = chrome.runtime.getURL("").replace(/\/$/, "");
 
   // ── Content event names ────────────────────────────────────────────────────────
   // Message types accepted from the background over chrome.runtime.
   // These were once also accepted from the page over postMessage; see the
   // listener below for why that is gone.
   const CE = Object.freeze({
-    STEP_EXEC: "FS_STEP_EXEC",
-    PICK_SELECTOR: "FS_PICK_SELECTOR",
+    STEP_EXEC: "VQ_STEP_EXEC",
+    PICK_SELECTOR: "VQ_PICK_SELECTOR",
     // The picker is armed in every frame at once, so the frames that were not
     // clicked in stay armed — a crosshair the user cannot get rid of, and a
     // stale picker that eats the next click. Whoever wins tells the rest.
-    PICK_CANCEL: "FS_PICK_CANCEL",
-    FORM_FILL_ROW: "FS_FORM_FILL_ROW",
+    PICK_CANCEL: "VQ_PICK_CANCEL",
+    FORM_FILL_ROW: "VQ_FORM_FILL_ROW",
   });
 
   // ── Shadow DOM host ────────────────────────────────────────────────────────────
@@ -350,8 +350,8 @@
   /**
    * Bridge from the MAIN world to the background.
    *
-   * This listener used to route FS_STEP_EXEC, FS_PICK_SELECTOR and
-   * FS_FORM_FILL_ROW into _handleEvent, guarded only by
+   * This listener used to route VQ_STEP_EXEC, VQ_PICK_SELECTOR and
+   * VQ_FORM_FILL_ROW into _handleEvent, guarded only by
    * `event.source !== window` — a check every script running in the page
    * satisfies. Any page could therefore drive CLICK, FILL, SELECT, DRAG_DROP,
    * NAVIGATE, UPLOAD_ACTIVITY and the selector picker on any site the user
@@ -393,7 +393,7 @@
   window.addEventListener("message", (event) => {
     if (event.source !== window) return;
     const { type, payload } = event.data ?? {};
-    if (type !== "FS_NETWORK_SNIFF") return;
+    if (type !== "VQ_NETWORK_SNIFF") return;
 
     const clean = _sanitizeSniffPayload(payload);
     if (!clean) return;
@@ -499,8 +499,8 @@
     // The script is no longer declared for <all_urls> — it is injected on demand
     // (C-09) — so "is it there yet?" became a question that needed an answer.
     "fs:ping",
-    "FS_DETECT_STRUCTURE",
-    "FS_PROBE_SELECTORS",
+    "VQ_DETECT_STRUCTURE",
+    "VQ_PROBE_SELECTORS",
   ]);
 
   // Registered once per document: the __fsInjected guard at the top of this file
@@ -543,7 +543,7 @@
       // structure-detector.js is injected alongside this file and shares the
       // isolated world, so it hands its entry point over on a global. A classic
       // content script cannot import one.
-      case "FS_DETECT_STRUCTURE": {
+      case "VQ_DETECT_STRUCTURE": {
         const detect = globalThis.__fsDetectStructure;
         if (typeof detect !== "function") {
           throw new Error("Structure detector is not loaded in this page.");
@@ -557,7 +557,7 @@
       // worker, where utils/selector-learning.js lives — this file is a
       // classic content script and cannot import a module. The page observes,
       // the worker judges, the same as IF_ELSE and ASSERT.
-      case "FS_PROBE_SELECTORS":
+      case "VQ_PROBE_SELECTORS":
         return _probeSelectors(payload);
 
       default:
@@ -2684,7 +2684,7 @@
           // unrecognised, so the path built here was discarded and the
           // *specific* selector returned instead — `div.grid > img:nth-of-type(1)`
           // for a picker the user had put in Bulk mode, matching one image of
-          // four. Reported from real use twice (FS-01).
+          // four. Reported from real use twice (VQ-01).
           //
           // The siblings here are the same kind of thing as each other, which
           // is what separates this from the td case above: every cell of a row

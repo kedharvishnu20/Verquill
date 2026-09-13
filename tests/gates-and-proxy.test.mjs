@@ -42,7 +42,7 @@ const gates = (opts) =>
 
 const codes = (result) => result.warnings.map((w) => w.code);
 
-// ── Gate 4: captcha volume (FS-15) ───────────────────────────────────────────
+// ── Gate 4: captcha volume (VQ-15) ───────────────────────────────────────────
 
 test("a pipeline with no captcha step does not warn about captcha volume", async () => {
   // It used to measure the row delay of the first FORM_FILL step. A pipeline
@@ -100,7 +100,7 @@ test("the count is bounded by the pipeline, not only by the pacing", async () =>
   assert.ok(!codes(r).includes("HighCaptchaVolume"));
 });
 
-// ── Gate 5: proxy geography (FS-14) ──────────────────────────────────────────
+// ── Gate 5: proxy geography (VQ-14) ──────────────────────────────────────────
 
 test("gate 5 warns when no live proxy is in the country asked for", async () => {
   // The old version compared a proxy entry and a region that no caller ever
@@ -152,7 +152,7 @@ test("only live proxies count towards the region", async () => {
   assert.ok(all.includes("GB") && all.includes("US"));
 });
 
-// ── FS-17: what port means SOCKS ─────────────────────────────────────────────
+// ── VQ-17: what port means SOCKS ─────────────────────────────────────────────
 
 test("Tor's ports are read as SOCKS, not as HTTP", () => {
   // 9050 and 9150 are the Tor daemon and Tor Browser's bundled client. Guessing

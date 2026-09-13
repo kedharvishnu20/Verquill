@@ -30,9 +30,9 @@ import { logger } from "../utils/logger.js";
 const MODULE = "proxy-manager";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const STORAGE_KEY_POOL = "fs_proxy_pool"; // local: pool metadata (no creds)
-const STORAGE_KEY_CREDS = "fs_proxy_creds"; // session: user/pass per host:port
-const STORAGE_KEY_REGION = "fs_proxy_region"; // local: the country geo mode wants
+const STORAGE_KEY_POOL = "vq_proxy_pool"; // local: pool metadata (no creds)
+const STORAGE_KEY_CREDS = "vq_proxy_creds"; // session: user/pass per host:port
+const STORAGE_KEY_REGION = "vq_proxy_region"; // local: the country geo mode wants
 const PROXY_HEALTH_TIMEOUT_MS = 5000;
 const HEALTH_CHECK_URL = "https://httpbin.org/ip";
 
@@ -487,11 +487,6 @@ export function setRotationMode(mode) {
   logger.info(MODULE, "rotation-mode-set", { mode });
 }
 
-/** Get current rotation mode. */
-export function getRotationMode() {
-  return _rotationMode;
-}
-
 /**
  * The country geo rotation should exit through, as an ISO-3166-1 alpha-2 code.
  *
@@ -870,25 +865,6 @@ export async function clearProxy() {
     });
   });
   logger.info(MODULE, "proxy-cleared", {});
-}
-
-/**
- * Export pool hosts only (no credentials).
- * @returns {string} newline-separated host:port entries
- */
-export function exportHostsOnly() {
-  return _pool.map((p) => `${p.host}:${p.port}`).join("\n");
-}
-
-// Availability summary
-export function getPoolSummary() {
-  const alive = _pool.filter((p) => p.alive).length;
-  return {
-    total: _pool.length,
-    alive,
-    dead: _pool.length - alive,
-    mode: _rotationMode,
-  };
 }
 
 // === END proxy-manager.js ===

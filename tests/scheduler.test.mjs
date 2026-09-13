@@ -209,7 +209,7 @@ test("an alarm names the schedule it belongs to, both ways", () => {
   const id = "sch_abc123";
   assert.equal(scheduleIdFromAlarm(alarmName(id)), id);
   assert.equal(
-    scheduleIdFromAlarm("fs_sw_heartbeat"),
+    scheduleIdFromAlarm("vq_sw_heartbeat"),
     null,
     "the keep-alive alarm must not be read as a schedule",
   );

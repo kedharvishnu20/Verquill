@@ -41,10 +41,10 @@ test("FILL is emitted, in both languages", () => {
   const { py, js } = emit([
     step("FILL", { selector: "#email", text: "a@b.test" }),
   ]);
-  // Values pass through fs_env/fsEnv so a credential marker (B-14) resolves at
+  // Values pass through vq_env/vqEnv so a credential marker (B-14) resolves at
   // run time; an ordinary value comes back from it unchanged.
-  assert.match(py, /await page\.fill\("#email", fs_env\("a@b\.test"\)\)/);
-  assert.match(js, /await page\.fill\('#email', fsEnv\('a@b\.test'\)\)/);
+  assert.match(py, /await page\.fill\("#email", vq_env\("a@b\.test"\)\)/);
+  assert.match(js, /await page\.fill\('#email', vqEnv\('a@b\.test'\)\)/);
 });
 
 test("multi-field FILL emits every field and the submit click", () => {
@@ -58,8 +58,8 @@ test("multi-field FILL emits every field and the submit click", () => {
       submitSelector: "#go",
     }),
   ]);
-  assert.match(py, /page\.fill\("#first", fs_env\("Ada"\)\)/);
-  assert.match(py, /page\.fill\("#last", fs_env\("Lovelace"\)\)/);
+  assert.match(py, /page\.fill\("#first", vq_env\("Ada"\)\)/);
+  assert.match(py, /page\.fill\("#last", vq_env\("Lovelace"\)\)/);
   assert.match(py, /page\.click\("#go"\)/);
 });
 
@@ -367,8 +367,8 @@ test("an exported script cleans values the way the pipeline does", () => {
       ],
     }),
   ]);
-  assert.match(js, /fsNumber|_fs_number/i);
-  assert.match(py, /fs_number/i);
+  assert.match(js, /vqNumber|_fs_number/i);
+  assert.match(py, /vq_number/i);
   // A relative link is resolved against the page it came from.
   assert.match(js, /page\.url\(\)/);
   assert.match(py, /page\.url/);
@@ -382,7 +382,7 @@ test("a field with no transform is emitted with no wrapper", () => {
   // exports as thirty rows, not as the first one.
   assert.match(js, /_cols\['name'\] = await Promise\.all\(/);
   assert.match(js, /await page\.locator\('\.n'\)\.all\(\)/);
-  assert.match(js, /\(await fsReadEl\(_el, \{"type":"text"[^)]*\)\)\)/);
+  assert.match(js, /\(await vqReadEl\(_el, \{"type":"text"[^)]*\)\)\)/);
 });
 
 // ── the generated scripts are valid programs ─────────────────────────────────
@@ -396,8 +396,9 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { skipWithoutPython } from "./helpers/python.mjs";
 
-const dir = mkdtempSync(join(tmpdir(), "fs-emit-"));
+const dir = mkdtempSync(join(tmpdir(), "vq-emit-"));
 
 /** Every construct the emitters can produce, in one pipeline. */
 const KITCHEN_SINK = [
@@ -486,15 +487,11 @@ test("the emitted Node script parses", () => {
 });
 
 test("the emitted Python script compiles", (t) => {
-  let python;
-  try {
-    python = execFileSync("sh", ["-c", "command -v python3"], {
-      encoding: "utf8",
-    }).trim();
-  } catch {
-    t.skip("no python3 on this machine");
-    return;
-  }
+  // This guard used to shell out to `sh -c "command -v python3"`, which needs
+  // a POSIX shell — so on the Windows machines it existed to protect, the
+  // guard itself failed before the thing it was guarding could.
+  const python = skipWithoutPython(t);
+  if (!python) return;
   const file = join(dir, "out.py");
   writeFileSync(file, emit([...KITCHEN_SINK, ...NESTED]).py);
   execFileSync(python, ["-m", "py_compile", file]);
@@ -525,16 +522,16 @@ test("a user's regex pattern reaches the script intact", () => {
   // Read the emitted pattern back out and check what it actually matches,
   // rather than checking how it is spelled.
   const jsPattern = js.match(
-    /fsRegex\(await fsReadEl\(_el, \{[^}]*\}\), '(.*)'\)/,
+    /vqRegex\(await vqReadEl\(_el, \{[^}]*\}\), '(.*)'\)/,
   )?.[1];
-  assert.ok(jsPattern, `no fsRegex call emitted:\n${js}`);
+  assert.ok(jsPattern, `no vqRegex call emitted:\n${js}`);
   const jsSource = new Function(`return '${jsPattern}'`)();
   assert.equal("SKU: ABC-1".match(new RegExp(jsSource))?.[1], "ABC-1");
 
   const pyPattern = py.match(
-    /fs_regex\(await fs_read_el\(_el, \{[^}]*\}\), r"(.*)"\)/,
+    /vq_regex\(await vq_read_el\(_el, \{[^}]*\}\), r"(.*)"\)/,
   )?.[1];
-  assert.ok(pyPattern, `no fs_regex call emitted:\n${py}`);
+  assert.ok(pyPattern, `no vq_regex call emitted:\n${py}`);
   // r"" is raw: what is between the quotes is the pattern, verbatim.
   assert.equal("SKU: ABC-1".match(new RegExp(pyPattern))?.[1], "ABC-1");
 });
@@ -555,7 +552,7 @@ test("a quote in a regex pattern cannot break out of the string", () => {
   const file = join(dir, "quote.mjs");
   writeFileSync(file, js);
   execFileSync(process.execPath, ["--check", file]);
-  assert.ok(py.includes("fs_regex"));
+  assert.ok(py.includes("vq_regex"));
 });
 
 test("an invalid regex pattern makes the script refuse to run, not quietly differ", () => {
@@ -592,15 +589,11 @@ test("the JavaScript PAGE_DATA hands to the browser is itself valid JavaScript",
   // Read it back the way Python will: the text in the .py file is not what
   // reaches the browser, because Python resolves the escapes in it first.
   // Checking the raw text passes with this broken, which is how it got here.
-  let python;
-  try {
-    python = execFileSync("sh", ["-c", "command -v python3"], {
-      encoding: "utf8",
-    }).trim();
-  } catch {
-    t.skip("no python3 on this machine");
-    return;
-  }
+  // This guard used to shell out to `sh -c "command -v python3"`, which needs
+  // a POSIX shell — so on the Windows machines it existed to protect, the
+  // guard itself failed before the thing it was guarding could.
+  const python = skipWithoutPython(t);
+  if (!python) return;
   const pyFile = join(dir, "pd.py");
   writeFileSync(pyFile, py);
   const reader = join(dir, "read_snippet.py");
@@ -671,13 +664,13 @@ test("an emitted numeric condition compares numbers, not strings", () => {
       elseBranch: [],
     },
   ]);
-  // The prelude defines fsNumber unconditionally, so look at the condition
+  // The prelude defines vqNumber unconditionally, so look at the condition
   // itself rather than at the file.
   // Anchored on the emitted step, or the prelude's own `if`s match first.
   const jsTest = js.match(/\/\/ IF_ELSE:[\s\S]*?if \((.*)\) \{/)?.[1] ?? "";
   assert.match(
     jsTest,
-    /fsNumber/,
+    /vqNumber/,
     `the branch does not read a number: ${jsTest}`,
   );
   // Both sides are now named rather than one being inlined next to the
@@ -693,7 +686,7 @@ test("an emitted numeric condition compares numbers, not strings", () => {
   const pyTest = py.match(/# IF_ELSE:[\s\S]*?\n\s*if (.*):/)?.[1] ?? "";
   assert.match(
     pyTest,
-    /fs_number/,
+    /vq_number/,
     `the branch does not read a number: ${pyTest}`,
   );
   assert.match(pyTest, /a < b/, `not a numeric comparison: ${pyTest}`);
@@ -735,15 +728,11 @@ test("the emitted branches still parse with every condition in them", (t) => {
   writeFileSync(jsFile, js);
   execFileSync(process.execPath, ["--check", jsFile]);
 
-  let python;
-  try {
-    python = execFileSync("sh", ["-c", "command -v python3"], {
-      encoding: "utf8",
-    }).trim();
-  } catch {
-    t.skip("no python3 on this machine");
-    return;
-  }
+  // This guard used to shell out to `sh -c "command -v python3"`, which needs
+  // a POSIX shell — so on the Windows machines it existed to protect, the
+  // guard itself failed before the thing it was guarding could.
+  const python = skipWithoutPython(t);
+  if (!python) return;
   const pyFile = join(dir, "branches.py");
   writeFileSync(pyFile, py);
   execFileSync(python, ["-m", "py_compile", pyFile]);
@@ -773,10 +762,10 @@ test("a capture group and flags reach both scripts, and only the shared flags do
     }),
   ]);
 
-  assert.match(js, /fsRegex\(await fsReadEl\(_el, \{[^}]*\}\), '.*', 'i', 2\)/);
+  assert.match(js, /vqRegex\(await vqReadEl\(_el, \{[^}]*\}\), '.*', 'i', 2\)/);
   assert.match(
     py,
-    /fs_regex\(await fs_read_el\(_el, \{[^}]*\}\), r".*", "i", 2\)/,
+    /vq_regex\(await vq_read_el\(_el, \{[^}]*\}\), r".*", "i", 2\)/,
   );
 });
 
@@ -798,11 +787,11 @@ test("a regex field with neither group nor flags emits the plain two-argument ca
 
   assert.match(
     js,
-    /fsRegex\(await fsReadEl\(_el, \{[^}]*\}\), '\(\\\\d\+\)'\)/,
+    /vqRegex\(await vqReadEl\(_el, \{[^}]*\}\), '\(\\\\d\+\)'\)/,
   );
   assert.match(
     py,
-    /fs_regex\(await fs_read_el\(_el, \{[^}]*\}\), r"\(\\d\+\)"\)/,
+    /vq_regex\(await vq_read_el\(_el, \{[^}]*\}\), r"\(\\d\+\)"\)/,
   );
 });
 
@@ -971,12 +960,12 @@ test("an exported filename is built one sanitised segment at a time", () => {
     }),
   ]);
 
-  assert.match(py, /os\.path\.join\("downloads", fs_safe_seg\(.*fs_safe_seg\(/);
-  assert.match(js, /path\.join\('downloads', fsSafeSeg\(.*fsSafeSeg\(/);
+  assert.match(py, /os\.path\.join\("downloads", vq_safe_seg\(.*vq_safe_seg\(/);
+  assert.match(js, /path\.join\('downloads', vqSafeSeg\(.*vqSafeSeg\(/);
   // The helper is the same allowlist the extension applies, so a name the page
   // supplied cannot name a directory in an exported run either.
-  assert.match(py, /def fs_safe_seg/);
-  assert.match(js, /const fsSafeSeg/);
+  assert.match(py, /def vq_safe_seg/);
+  assert.match(js, /const vqSafeSeg/);
 });
 
 test("a filename template the script cannot resolve is refused, not dropped", () => {
@@ -1030,11 +1019,11 @@ test("an API step's rows and pagination are emitted in both languages", () => {
       pagination: { mode: "cursor", cursorPath: "next_cursor" },
     }),
   ]);
-  assert.match(js, /fsApiRows/);
-  assert.match(js, /fsDig\(apiBody, 'next_cursor'\)/);
-  assert.match(js, /fsApiFetch/); // the 429/5xx retry
-  assert.match(py, /fs_api_rows/);
-  assert.match(py, /fs_dig\(api_body, "next_cursor"\)/);
+  assert.match(js, /vqApiRows/);
+  assert.match(js, /vqDig\(apiBody, 'next_cursor'\)/);
+  assert.match(js, /vqApiFetch/); // the 429/5xx retry
+  assert.match(py, /vq_api_rows/);
+  assert.match(py, /vq_dig\(api_body, "next_cursor"\)/);
   assert.match(py, /respect_retry_after_header=True/);
 });
 

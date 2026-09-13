@@ -31,22 +31,24 @@
 
 ## Form Filler Limitations
 
-| Limitation                              | Notes                                                                                                        |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| React fiber hack is fragile             | React's internal fiber keys change between versions; hack is best-effort and may fail on React 19+           |
-| `file` input type (`<input type=file>`) | DataTransfer assignment works in most browsers but may be blocked by strict site CSPs                        |
-| Shadow DOM fields                       | `document.querySelector()` does not pierce shadow roots; shadow-walker.js traversal needed for such fields   |
-| CAPTCHA auto-solve rate limits          | Third-party CAPTCHA APIs have their own rate limits independent of Verquill's ethics gate                    |
-| Custom web components                   | Non-standard input components (e.g., `<my-input>`) may not respond to native events; manual handler required |
+| Limitation                              | Notes                                                                                                                                  |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| React fiber hack is fragile             | React's internal fiber keys change between versions; hack is best-effort and may fail on React 19+                                     |
+| `file` input type (`<input type=file>`) | DataTransfer assignment works in most browsers but may be blocked by strict site CSPs                                                  |
+| Shadow DOM fields                       | `document.querySelector()` does not pierce shadow roots, so a field inside a closed or nested shadow root is not reachable by selector |
+| CAPTCHA auto-solve rate limits          | Third-party CAPTCHA APIs have their own rate limits independent of Verquill's ethics gate                                              |
+| Custom web components                   | Non-standard input components (e.g., `<my-input>`) may not respond to native events; manual handler required                           |
 
 ---
 
 ## Data Parsing
 
-| Limitation                | Notes                                                                                                                                                                 |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No data-file input exists | `data-sources/csv-parser.js` and `json-parser.js` are complete and imported by nothing. There is no UI to load a data file and no step that consumes one (audit F-02) |
-| djb2 collisions           | `utils/deduplicator.js` is not cryptographic — ~0.00000023% collision probability per row. It is also not currently used by anything                                  |
+| Limitation                     | Notes                                                                                                                                                                                                                                         |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No data-file input             | A list can be pasted into LOOP, or read from a dotted path the run already holds (`utils/loop-items.js`), but there is no file picker. `MAX_LIST_ITEMS` caps a paste at 10,000 — past that the paste is a file, and a file needs a permission |
+| Pasted CSV is not a CSV parser | The list reader handles a delimiter and a header row, which covers a copied spreadsheet column. It is not a full RFC 4180 parser: an embedded newline inside a quoted field will split the row                                                |
+| Dedupe keys are hashed         | `utils/row-dedupe.js` keys on the fields you name, not the whole row. Two records that agree on every named field are one record, by design — naming too few fields silently merges distinct rows                                             |
+| The seen-set is bounded        | Past its bound the oldest keys are forgotten, so a duplicate separated by more than that many rows is not caught. The run says so rather than reporting a clean dedupe                                                                        |
 
 ---
 
@@ -93,17 +95,26 @@
 
 ## Not reachable from the UI
 
-These modules exist, mostly work, and are called by nothing. Each says so in its
-own header.
+Nothing. This section used to list four subsystems that existed, mostly worked,
+and were called by nothing — which is a worse state than either shipping them
+or deleting them, because a reader cannot tell from the outside which of the
+two a given line is.
 
-| Subsystem                                                              | Audit |
-| ---------------------------------------------------------------------- | ----- |
-| Proxy pool — parsing, rotation, health checks, PAC application         | A-05  |
-| Captcha solving — 2captcha, Anti-Captcha, CapSolver, and detection     | A-06  |
-| FORM_FILL — `form-filler.js`, `field-auto-mapper.js`, its ethics gates | A-07  |
-| Data-file input — `csv-parser.js`, `json-parser.js`                    | F-02  |
+All four are resolved:
 
-Whether to wire them up or remove them is an open decision. Until it is made,
-treat them as untested.
+| Subsystem                                                      | Audit | Outcome                                                                                 |
+| -------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------- |
+| Proxy pool — parsing, rotation, health checks, PAC application | A-05  | Wired. Runs during a scrape, rotating per run                                           |
+| Captcha solving — 2captcha, Anti-Captcha, and detection        | A-06  | Wired behind SOLVE_CAPTCHA, with `captcha-check.js` replacing the larger detector       |
+| FILL — `form-filler.js` and its ethics gates                   | A-07  | Wired. The injector loads it on demand                                                  |
+| Data-file input — `csv-parser.js`, `json-parser.js`            | F-02  | Deleted. LOOP takes a pasted list or a run-context path instead; see Data Parsing above |
 
-_Last reviewed against the code at batch 4._
+`field-auto-mapper.js` went the fourth way: deleted, with its one useful part
+(`fieldMatchScore`) moved into `utils/levenshtein.js`, where
+`utils/extraction-schema.js` now calls it.
+
+This is checked rather than promised. `npm run lint` fails on a reference to a
+name that does not exist, and `tests/doc-drift.test.mjs` fails if a
+current-state document starts describing a file that was deleted.
+
+_Last reviewed against the code at the industrial-readiness pass._

@@ -1,0 +1,96 @@
+# The gates this project already had, finally enforced.
+#
+# README and CONTRIBUTING both described checks running "in CI". There was no
+# CI. That gap is not theoretical: a large rewrite landed on `dev` with eight
+# tests failing and nobody noticed, and an outside audit of the same tree
+# reported 51 failures — most of which were its own Windows environment rather
+# than this code. Both of those are the same missing thing.
+#
+# Every gate here is one `npm run` a contributor can run locally. Nothing is
+# CI-only, so a red build is always reproducible on the machine that caused it.
+name: CI
+
+on:
+  push:
+    branches: [master, main, dev]
+  pull_request:
+  workflow_dispatch:
+
+# A new push supersedes the run in flight for the same branch. The suites take
+# minutes and queueing them behind each other helps nobody.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Do not stop Windows because Linux failed, or the reverse: when a
+      # failure is platform-specific, seeing which platform is the finding.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Python is an optional test dependency: several tests compile the
+      # Python that script-gen emits, which is the only way to know the
+      # generated script is valid rather than merely well-shaped. Installed on
+      # both platforms so those tests actually run rather than skipping —
+      # a skip is honest, but a skip on every runner is no coverage at all.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # `npm ci` rather than `npm install`: it installs exactly the lockfile
+      # and fails if the two disagree, which is the check, not a side effect.
+      - run: npm ci
+
+      - name: Syntax
+        run: npm run check
+
+      - name: Format
+        run: npm run format:check
+
+      # `npm run check` only parses. It cannot see a reference to a name that
+      # does not exist, which is exactly the bug a mechanical dead-code removal
+      # left behind here: orphaned statements that were syntactically perfect
+      # and referenced variables that were no longer in scope. Every unit test
+      # passed; only the browser suite caught it. oxlint's no-undef catches it
+      # in under a second.
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Package the extension
+        run: npm run build
+
+      # The registry website is a separate deployment and is not part of the
+      # extension package, but it shares utils/pipeline-capabilities.js — the
+      # module both publish and import gates depend on. If that import stops
+      # resolving, the site silently loses its capability check, which is
+      # exactly the failure this repository has now had twice.
+      - name: Install site dependencies
+        working-directory: site
+        run: npm ci
+
+      - name: Build the site
+        working-directory: site
+        run: npm run build
+
+      - name: Lint the site
+        working-directory: site
+        run: npm run lint

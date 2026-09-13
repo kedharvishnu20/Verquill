@@ -262,7 +262,7 @@ const arithmetic = {
 
 const attest = async (attested) => {
   await globalThis.chrome.storage.local.set({
-    fs_captcha_attest_v1: attested ? { "shop.test": { at: 1 } } : {},
+    vq_captcha_attest_v1: attested ? { "shop.test": { at: 1 } } : {},
   });
 };
 
@@ -458,7 +458,7 @@ const imageCaptcha = {
 /** A gateway pointed at a local OpenAI-compatible endpoint: no key, no cost. */
 const configureGateway = () =>
   globalThis.chrome.storage.local.set({
-    fs_gateway_config_v1: {
+    vq_gateway_config_v1: {
       provider: "openai-compatible",
       model: "llava",
       baseUrl: "http://localhost:11434/v1",
@@ -594,7 +594,7 @@ test("with no provider configured nothing is asked and nothing is spent", async 
   // The default state of the tool. It is not a failure — it is what "free
   // unless you choose otherwise" means.
   await attest(true);
-  await globalThis.chrome.storage.local.set({ fs_gateway_config_v1: null });
+  await globalThis.chrome.storage.local.set({ vq_gateway_config_v1: null });
   const { sent, seen } = await runWithGateway(imageCaptcha, pixel, "A7X9K");
   assert.equal(seen.length, 0);
   assert.ok(!sent.some((p) => p.type === "FILL"));

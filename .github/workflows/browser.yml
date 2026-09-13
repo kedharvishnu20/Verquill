@@ -1,0 +1,75 @@
+# The suites that need a real browser.
+#
+# Kept off the pull-request path deliberately. `npm run e2e` loads the unpacked
+# extension into Chromium and drives the side panel; it takes around four
+# minutes, and a gate that slow gets worked around rather than waited for. The
+# unit suite in ci.yml is what gates a merge.
+#
+# These still have to run somewhere, because they cover what no unit test can:
+# that the panel boots without an uncaught error, that a pipeline executes
+# end to end, and that the checks in the panel behave when there is an actual
+# DOM and an actual service worker underneath them.
+name: Browser
+
+on:
+  schedule:
+    # 03:00 UTC daily. Nothing merges at that hour, so a failure here is a
+    # signal about the tree rather than about whatever landed a minute ago.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [master, main]
+
+concurrency:
+  group: browser-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Extension in a real browser
+    runs-on: ubuntu-latest
+    # Generous but bounded: the suite takes minutes, and a hung browser should
+    # fail rather than occupy a runner until the account's limit stops it.
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Only Chromium, and only its own dependencies. The extension is a Chrome
+      # MV3 extension; Firefox and WebKit cannot load it, so downloading them
+      # would cost minutes to test nothing.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # An extension needs a real display: Chromium cannot load one in headless
+      # mode the way the harness drives it.
+      - name: End-to-end suite
+        run: xvfb-run -a npm run e2e
+
+      # Real pages, mirrored into the repo rather than fetched live, so the
+      # suite does not depend on a third party being up or unchanged.
+      - name: Challenge pages
+        run: xvfb-run -a npm run challenges
+
+      # The browser suites write traces and screenshots when they fail, and a
+      # failure nobody can see the state of is a failure nobody can fix.
+      - name: Upload failure artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-artefacts
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

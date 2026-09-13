@@ -157,23 +157,4 @@ export async function clearDataset(name) {
   );
 }
 
-/**
- * Every dataset that has rows, with its count.
- * @returns {Promise<Array<{name: string, rows: number}>>}
- */
-export async function listDatasets() {
-  const records = await withStores(
-    [STORE_DATASETS],
-    "readonly",
-    ({ [STORE_DATASETS]: s }) => requestAsPromise(s.getAll()),
-  );
-  const counts = new Map();
-  for (const r of records ?? []) {
-    counts.set(r.dataset, (counts.get(r.dataset) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .map(([name, rows]) => ({ name, rows }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
 // === END dataset-store.js ===

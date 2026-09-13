@@ -17,7 +17,8 @@
  *   `datePublished`; the user typed `published date`. Something has to decide
  *   those are the same field, and `fieldMatchScore()` in
  *   `utils/levenshtein.js` already does exactly that — it was written for
- *   `content/field-auto-mapper.js`, which nothing has ever reached (audit A-07).
+ *   `content/field-auto-mapper.js`, which nothing ever reached (audit A-07) and
+ *   which has since been removed.
  *   It could not be used from the page even so: `smart-extractor.js` is a
  *   classic content script and cannot import a module. So the page reports the
  *   structured-data node it found and this decides what the keys mean, which is

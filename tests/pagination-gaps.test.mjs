@@ -17,6 +17,7 @@ import {
 import { loadInjector } from "./helpers/content-harness.mjs";
 import { emitNode } from "../script-gen/node-emitter.js";
 import { emitPython } from "../script-gen/python-emitter.js";
+import { skipWithoutPython } from "./helpers/python.mjs";
 
 const ctx = () => ({ extracted: {} });
 const step = (type, config = {}, extra = {}) => ({
@@ -26,7 +27,7 @@ const step = (type, config = {}, extra = {}) => ({
   ...extra,
 });
 
-// ── FS-03: a Next link that opens in a new tab ───────────────────────────────
+// ── VQ-03: a Next link that opens in a new tab ───────────────────────────────
 
 test("the probe reports where Next leads, and whether it opens a tab", async () => {
   const page = await loadInjector(
@@ -158,7 +159,7 @@ test("a tab a JavaScript paginator opens is adopted and closed", async () => {
   await endRun(runId);
 });
 
-// ── FS-04: paginate-url runs past the last page ──────────────────────────────
+// ── VQ-04: paginate-url runs past the last page ──────────────────────────────
 
 test("a URL-pattern loop stops once a page produces nothing", async () => {
   reset();
@@ -272,7 +273,7 @@ test("a first page with no rows does not end the loop", async () => {
   await endRun(runId);
 });
 
-// ── FS-08: the exported script's idea of "last page" ─────────────────────────
+// ── VQ-08: the exported script's idea of "last page" ─────────────────────────
 
 const pipeline = (steps) => ({
   name: "t",
@@ -334,22 +335,22 @@ test("the exported URL-pattern loop stops on an empty page", () => {
   ]);
   assert.match(
     emitNode(urlLoop),
-    /_rowsBefore > 0 && fsRows\.length === _rowsBefore/,
+    /_rowsBefore > 0 && vqRows\.length === _rowsBefore/,
   );
   assert.match(
     emitPython(urlLoop),
-    /_rows_before > 0 and len\(fs_rows\) == _rows_before/,
+    /_rows_before > 0 and len\(vq_rows\) == _rows_before/,
   );
 });
 
-test("both paginating scripts are still programs", async () => {
+test("both paginating scripts are still programs", async (t) => {
   // The emitters build source by concatenating strings, and the paginate
   // branches now carry a block of JavaScript inside a Python triple-quote.
   const { execFileSync } = await import("node:child_process");
   const { writeFileSync, mkdtempSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const dir = mkdtempSync(join(tmpdir(), "fs-page-"));
+  const dir = mkdtempSync(join(tmpdir(), "vq-page-"));
 
   const jsFile = join(dir, "run.mjs");
   writeFileSync(jsFile, emitNode(PAGINATE));
@@ -357,5 +358,9 @@ test("both paginating scripts are still programs", async () => {
 
   const pyFile = join(dir, "run.py");
   writeFileSync(pyFile, emitPython(PAGINATE));
-  execFileSync("python3", ["-m", "py_compile", pyFile]);
+  // Python is an optional test dependency. Skipped rather than failed when
+  // it is absent, and skipped visibly rather than passing quietly.
+  const python = skipWithoutPython(t);
+  if (!python) return;
+  execFileSync(python, ["-m", "py_compile", pyFile]);
 });

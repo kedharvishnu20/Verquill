@@ -35,10 +35,10 @@ import { logger } from "../utils/logger.js";
 const MODULE = "scheduler";
 
 /** Where schedules live. Local rather than session: they outlive the browser. */
-export const SCHEDULE_STORAGE_KEY = "fs_schedules_v1";
+export const SCHEDULE_STORAGE_KEY = "vq_schedules_v1";
 
 /** So a schedule's alarm is never confused with the keep-alive heartbeat. */
-const ALARM_PREFIX = "fs_schedule_";
+const ALARM_PREFIX = "vq_schedule_";
 
 /**
  * The shortest period Chrome will honour for an alarm.

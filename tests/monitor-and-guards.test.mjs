@@ -38,10 +38,24 @@ const swSrc = await readFile(
   "utf8",
 );
 
+/**
+ * Strip module syntax from an extracted span.
+ *
+ * These tests pull real function bodies out of the panel source and evaluate
+ * them with `new Function`, which is what makes them tests of the code rather
+ * than of a copy of it. `export` is a syntax error inside that body, so a
+ * helper becoming shared — as `notify` did when the overlay panel started using
+ * it — would break the extraction rather than the behaviour. The keyword is
+ * irrelevant to everything asserted below, so it is removed rather than
+ * matched around.
+ */
+const stripExports = (s) =>
+  s.replace(/\bexport (?=(async )?function |const |let )/g, "");
+
 function extract(pattern) {
   const m = src.match(pattern);
   assert.ok(m, `could not find ${pattern}`);
-  return m[0];
+  return stripExports(m[0]);
 }
 
 // ── E-04: the row count ──────────────────────────────────────────────────────
@@ -100,9 +114,11 @@ test("notify writes to the log pane and shows a banner", () => {
   );
   const { document } = dom.window;
 
-  const notifySrc = src.match(
-    /const MAX_LOG_ENTRIES[\s\S]*?\nfunction logToMonitor[\s\S]*?\n\}/,
-  )[0];
+  const notifySrc = stripExports(
+    src.match(
+      /const MAX_LOG_ENTRIES[\s\S]*?\nfunction logToMonitor[\s\S]*?\n\}/,
+    )[0],
+  );
   const notify = new Function(
     "document",
     "setTimeout",
@@ -113,7 +129,7 @@ test("notify writes to the log pane and shows a banner", () => {
 
   const logs = document.getElementById("mon-logs");
   assert.equal(logs.childElementCount, 1, "it is still recorded permanently");
-  const toast = document.querySelector("#fs-toasts .fs-toast");
+  const toast = document.querySelector("#vq-toasts .vq-toast");
   assert.ok(toast, "and shown where the user is actually looking");
   assert.equal(toast.textContent, "Refresh the target webpage first.");
   assert.ok(
@@ -126,9 +142,11 @@ test("a toast carries page text as text, never as markup", () => {
   const dom = new JSDOM(
     `<!doctype html><body><div id="mon-logs"></div></body>`,
   );
-  const notifySrc = src.match(
-    /const MAX_LOG_ENTRIES[\s\S]*?\nfunction logToMonitor[\s\S]*?\n\}/,
-  )[0];
+  const notifySrc = stripExports(
+    src.match(
+      /const MAX_LOG_ENTRIES[\s\S]*?\nfunction logToMonitor[\s\S]*?\n\}/,
+    )[0],
+  );
   const notify = new Function(
     "document",
     "setTimeout",
@@ -136,16 +154,16 @@ test("a toast carries page text as text, never as markup", () => {
   )(dom.window.document, () => 0);
 
   notify("error-log", '<img src=x onerror="alert(1)">');
-  const toast = dom.window.document.querySelector(".fs-toast");
+  const toast = dom.window.document.querySelector(".vq-toast");
   assert.equal(toast.querySelectorAll("img").length, 0);
   assert.equal(toast.textContent, '<img src=x onerror="alert(1)">');
 });
 
 test("the toast layer is styled and sits above the board", () => {
-  assert.match(htmlSrc, /#fs-toasts \{[\s\S]*?z-index: 10000/);
+  assert.match(htmlSrc, /#vq-toasts \{[\s\S]*?z-index: 10000/);
   assert.match(
     htmlSrc,
-    /\.fs-toast\.error-log \{\s*border-left-color: var\(--red\)/,
+    /\.vq-toast\.error-log \{\s*border-left-color: var\(--red\)/,
   );
 });
 

@@ -39,23 +39,4 @@ export async function exportRows(rows, format, filename) {
   await writer.close();
 }
 
-/** @param {object[]} rows @param {string} [filename] */
-export const exportCSV = (rows, filename = "export.csv") =>
-  exportRows(rows, "csv", filename);
-/** @param {object[]} rows @param {string} [filename] */
-export const exportJSON = (rows, filename = "export.json") =>
-  exportRows(rows, "json", filename);
-/** @param {object[]} rows @param {string} [filename] */
-export const exportJSONL = (rows, filename = "export.jsonl") =>
-  exportRows(rows, "jsonl", filename);
-/** @param {object[]} rows @param {string} [filename] */
-export const exportTSV = (rows, filename = "export.tsv") =>
-  exportRows(rows, "tsv", filename);
-/** @param {object[]} rows @param {string} [filename] */
-export const exportXML = (rows, filename = "export.xml") =>
-  exportRows(rows, "xml", filename);
-/** @param {object[]} rows @param {string} [filename] */
-export const exportMarkdown = (rows, filename = "export.md") =>
-  exportRows(rows, "markdown", filename);
-
 // === END text-exporters.js ===

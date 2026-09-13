@@ -143,7 +143,7 @@ const PASSWORD_SELECTOR =
 const SECRET_HEADER =
   /^(authorization|proxy-authorization|x-api-key|api-key|x-auth-token|cookie)$/i;
 
-const ENV_MARKER = (name) => `__FS_ENV__${name}__`;
+const ENV_MARKER = (name) => `__VQ_ENV__${name}__`;
 
 /**
  * Replace credentials in a compiled AST with environment-variable markers.
@@ -167,7 +167,7 @@ export function redactSecrets(ast) {
   let n = 0;
 
   const claim = (stepId, type, where) => {
-    const env = `FS_SECRET_${++n}`;
+    const env = `VQ_SECRET_${++n}`;
     found.push({ env, stepId: stepId ?? null, type, where });
     return ENV_MARKER(env);
   };

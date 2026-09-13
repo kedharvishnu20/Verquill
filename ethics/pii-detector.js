@@ -96,22 +96,6 @@ export function scanText(text) {
 }
 
 /**
- * Check if there is any PII in an array of rows.
- * @param {object[]} rows
- * @returns {boolean}
- */
-export function hasPII(rows) {
-  for (const row of rows) {
-    for (const value of Object.values(row)) {
-      if (value == null) continue;
-      const str = String(value);
-      if (PII_PATTERNS.some(({ pattern }) => pattern.test(str))) return true;
-    }
-  }
-  return false;
-}
-
-/**
  * Produce a human-readable summary of PII findings.
  * @param {PIIFinding[]} findings
  * @returns {string}

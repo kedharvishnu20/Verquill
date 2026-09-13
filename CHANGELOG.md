@@ -10,14 +10,19 @@ if any copy of it drifts.
 ## [Unreleased]
 
 Everything below was found by a full-repository audit
-([`docs/ISSUE_AUDIT.md`](docs/ISSUE_AUDIT.md), 171 findings) and fixed against
+([`docs/ISSUE_AUDIT.md`](docs/ISSUE_AUDIT.md), 192 findings) and fixed against
 it. Entries name the finding, so the audit and this file can be read together.
 
 Every fix landed with regression tests, and every test was run against the
 pre-fix tree first to confirm it failed. The suite went from **zero tests to
-818**, plus **69 end-to-end checks** that load the extension into a real
-Chromium and drive it — which is what caught four of them, including the two
-worst.
+1422**, plus **85 end-to-end checks** that load the extension into a real
+Chromium and drive it and **8 against real pages mirrored into the repo** —
+which is what caught several of them, including the two worst.
+
+Counts inside individual entries below are deliberately left as they were
+written. "It passed 442 unit tests" is a fact about the moment a bug was found,
+and rewriting it to today's number would destroy the only thing it was there to
+say.
 
 ### Added — the model's answer has to be on the page
 
@@ -400,21 +405,21 @@ All three share a shape: the run keeps going, produces rows, finishes without an
 error — and every page after the first is a copy of the first. The exporter's
 dedup used to hide the evidence.
 
-- **A Next link that opens in a new tab** (FS-03). Clicking `target="_blank"`
+- **A Next link that opens in a new tab** (VQ-03). Clicking `target="_blank"`
   loaded page 2 into a tab nobody was reading while the run went on scraping
   page 1, once per "page", until the count ran out. The probe now reports where
   Next leads and whether it would open a tab, and the run follows the href in
   its own tab — through the same origin gate every other navigation uses. A
   JavaScript paginator calling `window.open` has no anchor to read, so a tab
   opened by the run's tab during the click is adopted after the fact and closed.
-- **A URL-pattern loop ran past the last page** (FS-04). That mode has nothing
+- **A URL-pattern loop ran past the last page** (VQ-04). That mode has nothing
   to probe: the template says where the pages are and `max` says how many. A run
   asked for 20 pages of a 5-page site fetched 15 empty ones, and on a site that
   clamps `?page=99` to the last page it scraped the same rows 15 times instead.
   A page that yields no rows after one that did now ends the loop, which is the
   same signal a person reads off the screen. There is a toggle for the pipeline
   whose rows come from somewhere else.
-- **The exported script had a cruder idea of "last page"** (FS-08). It asked
+- **The exported script had a cruder idea of "last page"** (VQ-08). It asked
   only whether the Next control exists and is enabled, missing `aria-disabled`,
   a disabled class on a `<span>`, an `<a>` with no `href`, and a control the
   site hides with CSS. Those reasons — and the new-tab check, and the empty-page
@@ -423,24 +428,24 @@ dedup used to hide the evidence.
 
 ### Fixed — two gates that were not gates
 
-- **Gate 4 measured the wrong thing** (FS-15). It estimated captcha volume from
+- **Gate 4 measured the wrong thing** (VQ-15). It estimated captcha volume from
   the row delay of the first FORM_FILL step, if the pipeline happened to have
   one. A pipeline with no FORM_FILL fell back to a default and warned about
   3000 solves an hour with no captcha step anywhere in it; a pipeline solving a
   hundred captchas inside a loop was measured against a number that had nothing
   to do with it. It now counts SOLVE_CAPTCHA steps through their loops, paced by
   the run's own delay, bounded by both.
-- **Gate 5 could not fire** (FS-14). It compared "the proxy entry" against "the
+- **Gate 5 could not fire** (VQ-14). It compared "the proxy entry" against "the
   declared region" and no caller passed either, in any pipeline, ever. It now
   answers a question it can: you set the pool to exit through a country, and no
   live proxy in it claims to be there — so the run will quietly use whatever is
   alive instead. That also made geo rotation real: `selectProxy`'s geo mode read
   a `targetCountry` nobody passed and behaved exactly like random, and the mode
   was missing from the panel's dropdown besides.
-- **Tor's ports are read as SOCKS** (FS-17). Only 1080 was inferred, so a proxy
+- **Tor's ports are read as SOCKS** (VQ-17). Only 1080 was inferred, so a proxy
   on 9050 or 9150 was treated as HTTP: it connected, then failed every request,
   with nothing saying why.
-- **Stale "unreachable" claims removed** (FS-16). The architecture notes named
+- **Stale "unreachable" claims removed** (VQ-16). The architecture notes named
   three modules nobody calls; two had since been wired, and one of the three
   finding numbers cited was the proxy pool, which now runs during a scrape.
 
@@ -452,34 +457,34 @@ the generated code is spelled: they lift the helpers out of the generated file,
 run them, and compare against the extension's own modules — the only comparison
 that catches a re-implementation drifting from its original.
 
-- **A bulk EXTRACT exported as one row** (FS-06). Every field was read with
+- **A bulk EXTRACT exported as one row** (VQ-06). Every field was read with
   `.first()`, so a pipeline that collected a grid of thirty products exported a
   script that returned one and said nothing about the other twenty-nine. Both
   emitters now assemble rows the way `_stepExtract` does: one match is a
   page-level value repeated on every row, n matches are positional, and a short
   field gets null rather than a repeat of its first match.
-- **An element is read the way the extension reads it** (FS-06, same fix). An
+- **An element is read the way the extension reads it** (VQ-06, same fix). An
   `<img>` answers with its `src` and a bare `<a>` with its `href`; the scripts
   used `innerText()` for everything, which for a grid of images is the empty
   string on every row. Those rules now live in one file as JavaScript, and both
   emitted scripts send the same text into the page.
-- **EXPORT wrote no file** (FS-07). It emitted `// implement write here` — a
+- **EXPORT wrote no file** (VQ-07). It emitted `// implement write here` — a
   script that runs, exits 0, and leaves nothing on disk. All six formats are now
   emitted in both languages, byte-for-byte identical to what the extension
   writes. Writing that test found a seventh difference: Python spaced its JSONL
   where JavaScript did not.
-- **`1.4E7` became 1.4** (FS-09). The extension reads scientific notation —
+- **`1.4E7` became 1.4** (VQ-09). The extension reads scientific notation —
   scrapethissite.com reports Antarctica's area that way — and the emitted
-  `fsNumber` stopped at the `E`. A wrong number that looks plausible in a column
+  `vqNumber` stopped at the `E`. A wrong number that looks plausible in a column
   of areas is the worst kind. Non-breaking and narrow spaces between thousands
   are handled too.
-- **A LOOP with max 0 ran zero times** (FS-10). The panel says 0 means every
+- **A LOOP with max 0 ran zero times** (VQ-10). The panel says 0 means every
   one, and `_executeLoop` agrees; `Math.min(length, 0)` and `elements[:0]` did
   not.
-- **Base64 that is not text came back mangled** (FS-11). `Buffer.toString('utf8')`
+- **Base64 that is not text came back mangled** (VQ-11). `Buffer.toString('utf8')`
   replaces bad bytes with U+FFFD and hands back a string where the in-page
   decoder returns null.
-- **ASSERT compared the wrong text** (FS-12). `_stepAssert` and `_stepIfElse`
+- **ASSERT compared the wrong text** (VQ-12). `_stepAssert` and `_stepIfElse`
   both read `textContent`; the scripts read `innerText`, which drops whatever
   CSS has hidden. An assertion could pass in the panel and fail in the script,
   with neither able to say why.

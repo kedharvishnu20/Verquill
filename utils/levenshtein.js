@@ -2,7 +2,8 @@
 /**
  * @module levenshtein
  * @description Normalized Levenshtein distance and Jaccard similarity
- *   used by field-auto-mapper.js for column↔field matching.
+ *   used by utils/extraction-schema.js to map a model's returned keys onto
+ *   the field names the user asked for.
  *   Also exports a tokenizer for splitting identifiers into words.
  * @dependencies none
  */
@@ -92,7 +93,7 @@ export function jaccardSimilarity(setA, setB) {
 
 /**
  * Combined field-match score: max of Jaccard(tokens) and Levenshtein(full strings).
- * Used by field-auto-mapper.js to score column↔field pairs.
+ * Used by utils/extraction-schema.js to score key↔field pairs.
  * @param {string} colName   - Dataset column name
  * @param {string} fieldSignal - Field label/name/id/placeholder signal
  * @returns {number} score in [0,1]

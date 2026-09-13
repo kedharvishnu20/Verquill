@@ -212,21 +212,36 @@ test("the save-dialog exporter is reached instead of deleted", async () => {
 });
 
 test("Levenshtein has one implementation, not two", async () => {
-  const mapper = await read("content/field-auto-mapper.js");
-  assert.match(mapper, /from "\.\.\/utils\/levenshtein\.js"/);
-  const code = mapper
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "");
-  assert.ok(
-    !/function levenshteinDistance\(/.test(code),
-    "the local copy is gone",
-  );
-  assert.ok(!/function levenshteinNorm\(/.test(code));
-  assert.match(
-    mapper,
-    /function tokenCoverage\(setA, setB\)/,
-    "the one term the shared module does not have stays here",
-  );
+  // This used to assert that content/field-auto-mapper.js imported the shared
+  // module rather than carrying its own copy. That file has since been removed
+  // outright: it was never reachable — no manifest entry, no injection-map
+  // entry, and its own header said so — so the duplication it was policed for
+  // cannot recur there.
+  //
+  // The rule it existed to enforce still holds, and now has a real consumer to
+  // enforce it against: utils/extraction-schema.js uses fieldMatchScore to map
+  // a model's returned keys onto the field names the user asked for.
+  await gone("content/field-auto-mapper.js");
+
+  const schema = await read("utils/extraction-schema.js");
+  assert.match(schema, /from "\.\/levenshtein\.js"/);
+
+  // And nothing anywhere has grown a second copy.
+  const files = [
+    "utils/extraction-schema.js",
+    "sidepanel/pipeline-builder.js",
+    "background/service-worker.js",
+    "content/smart-extractor.js",
+  ];
+  for (const f of files) {
+    const code = (await read(f))
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    assert.ok(
+      !/function levenshteinDistance\(/.test(code),
+      `${f} has grown its own Levenshtein`,
+    );
+  }
 });
 
 // ── F-07: the strings module ─────────────────────────────────────────────────

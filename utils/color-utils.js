@@ -130,29 +130,4 @@ export function hexToRGBA(hex, opacity) {
   return `rgba(${r},${g},${b},${opacity})`;
 }
 
-/**
- * Darken a hex color by a factor (0 = no change, 1 = black).
- * @param {string} hex
- * @param {number} factor - 0 to 1
- * @returns {string} hex
- */
-export function darken(hex, factor) {
-  const { r, g, b } = hexToRGB(hex);
-  const d = 1 - factor;
-  const toHex = (n) =>
-    Math.round(n * d)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-/**
- * Validate a CSS hex color string.
- * @param {string} str
- * @returns {boolean}
- */
-export function isValidHex(str) {
-  return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(str);
-}
-
 // === END color-utils.js ===

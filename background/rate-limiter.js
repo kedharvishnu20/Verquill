@@ -148,17 +148,6 @@ export function resetRetry(domain) {
   _retryState.delete(domain);
 }
 
-/**
- * Estimate requests per hour based on step count and timing.
- * @param {number} stepCount
- * @param {{ min: number, max: number }} timing - delay range in ms
- * @returns {number} estimated req/hr
- */
-export function estimateReqPerHr(stepCount, timing) {
-  const avgDelayMs = (timing.min + timing.max) / 2;
-  return Math.round((3_600_000 / avgDelayMs) * stepCount);
-}
-
 /** @param {number} ms */
 function _sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));

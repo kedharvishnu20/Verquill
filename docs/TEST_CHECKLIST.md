@@ -134,10 +134,28 @@ Since Verquill has no bundler, tests are manual unless you add a test harness.
 3. In the SW console, run each module function directly using dynamic import
 4. For content script tests, open a test page and use the injector console
 
-**Automated test harness (future):**
+**Automated test harness — built, and the checklist above is now the part it
+cannot reach.**
 
-- Jest + jsdom for utils (levenshtein, deduplicator, pii-detector)
-- Playwright for E2E (inject extension, run pipeline against a test server)
+This section described the harness as future work long after it existed. What
+runs today:
+
+| Command              | What it covers                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `npm test`           | 1422 unit tests — `node:test` with jsdom and fake-indexeddb, no Jest                              |
+| `npm run e2e`        | 85 checks driving the unpacked extension in a real Chromium against a local server                |
+| `npm run challenges` | 8 checks against real pages mirrored into the repo, so the suite does not depend on a third party |
+| `npm run lint`       | oxlint; `no-undef` is an error, which catches a reference the syntax check cannot see             |
+| `npm run check`      | Every source file parses as an ES module                                                          |
+
+`npm test`, `npm run lint`, `npm run check`, `npm run format:check` and
+`npm run build` gate every push on Linux and Windows. The browser suites run
+nightly rather than per pull request — four minutes is slow enough that a gate
+gets worked around rather than waited for.
+
+Keep the manual checklist above for what none of that reaches: whether the
+panel is legible, whether a run against a site you actually care about returns
+what you expected, and whether an ethics warning reads as a warning.
 
 ---
 

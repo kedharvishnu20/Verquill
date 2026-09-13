@@ -21,6 +21,7 @@ import {
 } from "../utils/row-dedupe.js";
 import { emitNode } from "../script-gen/node-emitter.js";
 import { emitPython } from "../script-gen/python-emitter.js";
+import { skipWithoutPython } from "./helpers/python.mjs";
 
 const ctx = () => ({ extracted: {} });
 const step = (type, config = {}, extra = {}) => ({
@@ -196,27 +197,27 @@ test("the exported script carries the same gate", () => {
     assert.match(src, /500/);
     assert.match(src, /url/);
   }
-  assert.match(emitNode(WITH_DEDUPE), /fsCollect\(row\)/);
-  assert.match(emitPython(WITH_DEDUPE), /fs_collect\(row\)/);
+  assert.match(emitNode(WITH_DEDUPE), /vqCollect\(row\)/);
+  assert.match(emitPython(WITH_DEDUPE), /vq_collect\(row\)/);
 });
 
 test("'across runs' becomes a file the script reads and rewrites", () => {
-  assert.match(emitNode(WITH_DEDUPE), /FS_SEEN_FILE/);
-  assert.match(emitPython(WITH_DEDUPE), /FS_SEEN_FILE/);
+  assert.match(emitNode(WITH_DEDUPE), /VQ_SEEN_FILE/);
+  assert.match(emitPython(WITH_DEDUPE), /VQ_SEEN_FILE/);
   // And a run-scoped one does not touch the disk.
   const runScoped = pipeline([
     { type: "DEDUPE", config: { fields: "url", scope: "run" } },
   ]);
-  assert.ok(!/FS_SEEN_FILE/.test(emitNode(runScoped)));
-  assert.ok(!/FS_SEEN_FILE/.test(emitPython(runScoped)));
+  assert.ok(!/VQ_SEEN_FILE/.test(emitNode(runScoped)));
+  assert.ok(!/VQ_SEEN_FILE/.test(emitPython(runScoped)));
 });
 
-test("both generated scripts are still programs", async () => {
+test("both generated scripts are still programs", async (t) => {
   const { execFileSync } = await import("node:child_process");
   const { writeFileSync, mkdtempSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const dir = mkdtempSync(join(tmpdir(), "fs-dedupe-"));
+  const dir = mkdtempSync(join(tmpdir(), "vq-dedupe-"));
 
   const jsFile = join(dir, "run.mjs");
   writeFileSync(jsFile, emitNode(WITH_DEDUPE));
@@ -224,5 +225,9 @@ test("both generated scripts are still programs", async () => {
 
   const pyFile = join(dir, "run.py");
   writeFileSync(pyFile, emitPython(WITH_DEDUPE));
-  execFileSync("python3", ["-m", "py_compile", pyFile]);
+  // Python is an optional test dependency. Skipped rather than failed when
+  // it is absent, and skipped visibly rather than passing quietly.
+  const python = skipWithoutPython(t);
+  if (!python) return;
+  execFileSync(python, ["-m", "py_compile", pyFile]);
 });

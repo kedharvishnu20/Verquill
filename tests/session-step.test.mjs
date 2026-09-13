@@ -79,11 +79,11 @@ test("a saved session survives a worker restart", async () => {
 test("the key persists in local storage, not session storage", async () => {
   // chrome.storage.session is emptied when the browser closes. A session store
   // that forgot overnight would defeat the purpose of saving one.
-  assert.ok(localArea.has("fs_sessions_key"));
+  assert.ok(localArea.has("vq_sessions_key"));
 });
 
 test("what is stored is not the plaintext", () => {
-  const raw = JSON.stringify(localArea.get("fs_sessions_enc"));
+  const raw = JSON.stringify(localArea.get("vq_sessions_enc"));
   assert.ok(!raw.includes("SECRET-SESSION"));
   assert.ok(!raw.includes("abc"));
 });
@@ -102,7 +102,7 @@ test("the listing says how the cookies were read, without decrypting", async () 
   assert.equal(partial.origin, "https://other.test");
   // Plaintext metadata only — no values in the index.
   assert.ok(
-    !JSON.stringify(localArea.get("fs_sessions_index")).includes('"1"'),
+    !JSON.stringify(localArea.get("vq_sessions_index")).includes('"1"'),
   );
 });
 

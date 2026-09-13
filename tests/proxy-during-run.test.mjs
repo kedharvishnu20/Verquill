@@ -153,15 +153,15 @@ test("the browser is not left proxied when a run is cut off", async () => {
   const { runId, runState } = startRun({ useProxy: true });
   await _startRunProxy(runState);
 
-  const held = await globalThis.chrome.storage.local.get("fs_proxy_held_v1");
+  const held = await globalThis.chrome.storage.local.get("vq_proxy_held_v1");
   assert.ok(
-    held.fs_proxy_held_v1,
+    held.vq_proxy_held_v1,
     "nothing recorded that this run holds the browser's proxy",
   );
-  assert.equal(held.fs_proxy_held_v1.runId, runId);
+  assert.equal(held.vq_proxy_held_v1.runId, runId);
 
   await _endRunProxy(runState);
-  const after = await globalThis.chrome.storage.local.get("fs_proxy_held_v1");
-  assert.ok(!after.fs_proxy_held_v1, "the note outlived the run holding it");
+  const after = await globalThis.chrome.storage.local.get("vq_proxy_held_v1");
+  assert.ok(!after.vq_proxy_held_v1, "the note outlived the run holding it");
   await endRun(runId);
 });

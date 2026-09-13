@@ -115,6 +115,10 @@ import {
   EthicsBlock,
   collectDeclaredOrigins,
 } from "./ethics-engine.js";
+// The same analyser the panel's import gate and the registry's publish gate
+// use. Enforced here as well because this is the only place every pipeline
+// passes through — see the check beside the ethics gates below.
+import { analyzePipeline, VERDICT } from "../utils/pipeline-capabilities.js";
 import {
   initBuffer,
   pushRow,
@@ -181,7 +185,7 @@ import {
 } from "../exporters/row-formatters.js";
 
 const MODULE = "service-worker";
-const STORAGE_FILES_KEY = "fs_storage_files_v1";
+const STORAGE_FILES_KEY = "vq_storage_files_v1";
 
 // ── Restricted sites that block automated file uploads ────────────────────────
 const RESTRICTED_UPLOAD_SITES = Object.freeze({
@@ -248,7 +252,7 @@ function _assertOriginAllowed(rawUrl, runState, stepType) {
  * It is now registered only while such a run is in flight, and scoped to the
  * run's own origin rather than every site.
  */
-const SNIFFER_SCRIPT_ID = "fs_page_sniffer";
+const SNIFFER_SCRIPT_ID = "vq_page_sniffer";
 const SNIFFER_FILE = "content/page-sniffer.js";
 
 /**
@@ -268,7 +272,7 @@ const SNIFFER_FILE = "content/page-sniffer.js";
  * hook it serves. injector.js guards itself with `__fsInjected`, so this and
  * the on-demand injection cannot install two listeners.
  */
-const SNIFFER_RELAY_ID = "fs_sniffer_relay";
+const SNIFFER_RELAY_ID = "vq_sniffer_relay";
 const INJECTOR_FILE = "content/injector.js";
 
 /** Runs currently requesting the sniffer; it is unregistered when this empties. */
@@ -531,7 +535,7 @@ const KEEPALIVE_MS = 20000;
 let _keepaliveTimer = null;
 
 function _startHeartbeat() {
-  chrome.alarms.create("fs_sw_heartbeat", { periodInMinutes: 1 });
+  chrome.alarms.create("vq_sw_heartbeat", { periodInMinutes: 1 });
   if (_keepaliveTimer) return;
   _keepaliveTimer = setInterval(() => {
     if (_runStates.size === 0) {
@@ -549,7 +553,7 @@ function _stopHeartbeat() {
     clearInterval(_keepaliveTimer);
     _keepaliveTimer = null;
   }
-  chrome.alarms.clear("fs_sw_heartbeat").catch(() => {});
+  chrome.alarms.clear("vq_sw_heartbeat").catch(() => {});
 }
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -564,7 +568,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     return;
   }
 
-  if (alarm.name === "fs_sw_heartbeat") {
+  if (alarm.name === "vq_sw_heartbeat") {
     logger.debug(MODULE, "heartbeat", { active: _runStates.size > 0 });
     // The worker may have been restarted by this very alarm, in which case the
     // interval is gone. Re-arm it if a run is still supposed to be in flight.
@@ -664,7 +668,7 @@ const CONTENT_FILES = ["content/injector.js"];
  * beside the routing rather than in each caller.
  */
 const ON_DEMAND_FILES = Object.freeze({
-  FS_DETECT_STRUCTURE: "content/structure-detector.js",
+  VQ_DETECT_STRUCTURE: "content/structure-detector.js",
   PAGE_DATA: "content/page-data.js",
   PAGE_JSON: "content/page-json.js",
   AUTO_EXTRACT: "content/smart-extractor.js",
@@ -1248,8 +1252,32 @@ _registerHandler(MSG.PIPELINE_START, async (payload, sender) => {
 
   // Persist state before any await
   await chrome.storage.local.set({
-    fs_run_log: { runId, startedAt: Date.now(), status: "running" },
+    vq_run_log: { runId, startedAt: Date.now(), status: "running" },
   });
+
+  // Refuse a pipeline that reads credentials and also talks to somewhere it
+  // never declared it scrapes. The panel checks this on import and the registry
+  // checks it on publish, and neither is enough on its own: a pipeline reaches
+  // this function from the MCP server, from a schedule firing hours later, and
+  // from anything that can write to chrome.storage — none of which go anywhere
+  // near the panel's import dialog.
+  //
+  // Same reasoning as the ethics gates immediately below, which already re-run
+  // rather than trusting a preflight: enforcement must not depend on the caller
+  // having asked politely. This is the choke point, so this is where it binds.
+  const capabilities = analyzePipeline(pipeline);
+  if (capabilities.verdict === VERDICT.BLOCKED) {
+    _runStates.delete(runId);
+    if (_runStates.size === 0) _stopHeartbeat();
+    await _disableSniffer(runId);
+    logger.warn(MODULE, "capability-block", {
+      runId,
+      // Origins, never the pipeline: a refusal that logs the payload puts
+      // whatever it was carrying into the log.
+      thirdParty: capabilities.thirdPartyOrigins,
+    });
+    throw new EthicsBlock("CAPABILITY_BLOCK", capabilities.blockedReason);
+  }
 
   // Run ethics gates first. Re-run rather than trusting the preflight result:
   // enforcement must not depend on the caller having asked politely.
@@ -2105,7 +2133,7 @@ async function _learnSelectors(selectors, values, tabId, runId) {
     // script is there, then address the message directly.
     await _ensureInjected(tabId);
     const resp = await chrome.tabs.sendMessage(tabId, {
-      type: "FS_PROBE_SELECTORS",
+      type: "VQ_PROBE_SELECTORS",
       payload: { selectors },
     });
     probed = resp?.ok ? resp.result : null;
@@ -2869,7 +2897,7 @@ async function _writeCookies(cookies) {
 }
 
 /** Where a "forever" dedupe remembers its keys, one entry per pipeline+site. */
-const STORAGE_DEDUPE_PREFIX = "fs_seen_";
+const STORAGE_DEDUPE_PREFIX = "vq_seen_";
 
 /**
  * Collect rows into the run, dropping the ones a DEDUPE step has already seen.
@@ -4348,7 +4376,7 @@ async function _executeLoop(step, tabId, runId, parentCtx = {}) {
       if (onFail === "stop") break;
     }
 
-    // Past the last page (B-27 / FS-04). "paginate-url" has nothing to probe:
+    // Past the last page (B-27 / VQ-04). "paginate-url" has nothing to probe:
     // the template says where the pages are and `max` says how many, so a run
     // asked for 20 pages of a 5-page site fetched 15 empty ones — and sites
     // that clamp ?page=99 to the last page served the same rows fifteen times
@@ -5361,7 +5389,7 @@ async function _askGatewayForCaptcha(tabId, found, runId) {
 // the ones nobody plans for.
 
 /** Set while a run holds the browser's proxy setting, so it can be given back. */
-const STORAGE_PROXY_HELD_KEY = "fs_proxy_held_v1";
+const STORAGE_PROXY_HELD_KEY = "vq_proxy_held_v1";
 
 /**
  * Take a proxy for this run, if it asked for one and the pool has a live entry.
@@ -5482,13 +5510,13 @@ async function _endRunProxy(runState) {
  * "this domain is mine, or I have permission on it, or the account is my own",
  * it is given once per domain, and it survives the run — the same shape as the
  * pipeline library and the storage file library, in chrome.storage.local under
- * an `fs_*_v1` key.
+ * an `vq_*_v1` key.
  *
  * It is deliberately separate from `captchaAuthorized`: the flag is per run and
  * the attestation is per domain, and neither alone is a decision to solve
  * anything.
  */
-const CAPTCHA_ATTEST_KEY = "fs_captcha_attest_v1";
+const CAPTCHA_ATTEST_KEY = "vq_captcha_attest_v1";
 
 /** @param {string} url @returns {string} the domain, or "" if there is none */
 function _hostOf(url) {
@@ -5932,9 +5960,9 @@ _registerHandler("content:detect", async (payload, sender) => {
   const tabId = payload?.tabId ?? sender.tab?.id;
   if (!tabId) throw new Error("No tab to read");
   await _ensureInjected(tabId);
-  await _ensureOnDemand(tabId, "FS_DETECT_STRUCTURE");
+  await _ensureOnDemand(tabId, "VQ_DETECT_STRUCTURE");
   const resp = await chrome.tabs.sendMessage(tabId, {
-    type: "FS_DETECT_STRUCTURE",
+    type: "VQ_DETECT_STRUCTURE",
     payload: {},
   });
   if (!resp?.ok) throw new Error(resp?.error || "Could not read the page");
@@ -5963,7 +5991,7 @@ async function _runSchedule(id) {
   if (!schedule) {
     // The alarm outlived its schedule. Clear it rather than firing forever for
     // something the user deleted and can no longer see.
-    await chrome.alarms.clear(`fs_schedule_${id}`);
+    await chrome.alarms.clear(`vq_schedule_${id}`);
     return;
   }
   if (!schedule.enabled) return;
@@ -6355,7 +6383,7 @@ _registerHandler(MSG.FORM_ROW_RESULT, async (payload) => {
 _registerHandler(MSG.CHECKPOINT_SAVE, async (payload) => {
   const { runId, cursorData } = payload;
   await chrome.storage.local.set({
-    [`fs_checkpoint_${runId}`]: { ...cursorData, savedAt: Date.now() },
+    [`vq_checkpoint_${runId}`]: { ...cursorData, savedAt: Date.now() },
   });
   logger.info(MODULE, "checkpoint-saved", { runId });
   return { ok: true };
@@ -6456,7 +6484,7 @@ _registerHandler("script:export", async (payload) => {
     // rather than shipped as literal braces in a URL (B-16).
     const templates = findUnresolvedTemplates(ast);
 
-    // Credentials become __FS_ENV__NAME__ markers that both emitters resolve
+    // Credentials become __VQ_ENV__NAME__ markers that both emitters resolve
     // from the environment. Only proxy credentials were handled before, so a
     // password or an Authorization header went into the file in plaintext
     // (B-14). Must run after the two scans, which read the original values.

@@ -71,47 +71,6 @@ export async function hasPermission(name) {
 }
 
 /**
- * Ask for it. Chrome shows its own dialog; this only reports the answer.
- *
- * Must be called from a user gesture — a click in the panel — or Chrome refuses
- * without prompting, which looks exactly like the user saying no.
- *
- * @param {string} name
- * @returns {Promise<boolean>} whether it is granted now
- */
-export async function requestPermission(name) {
-  try {
-    const granted = await chrome.permissions.request({ permissions: [name] });
-    logger.info(MODULE, granted ? "granted" : "declined", { name });
-    return granted;
-  } catch (err) {
-    logger.warn(MODULE, "request-failed", { name, error: err.message });
-    return false;
-  }
-}
-
-/**
- * Give it back.
- *
- * Offered in the panel beside the grant, because a permission that can only be
- * added from inside the tool and only removed from a Chrome settings page is
- * one people leave switched on.
- *
- * @param {string} name
- * @returns {Promise<boolean>} whether it is gone now
- */
-export async function removePermission(name) {
-  try {
-    const removed = await chrome.permissions.remove({ permissions: [name] });
-    logger.info(MODULE, removed ? "removed" : "remove-refused", { name });
-    return removed;
-  } catch (err) {
-    logger.warn(MODULE, "remove-failed", { name, error: err.message });
-    return false;
-  }
-}
-
-/**
  * The sentence a step shows when it needs a permission it does not have.
  *
  * One wording, in one place: a refusal has to say what is missing, what it is
