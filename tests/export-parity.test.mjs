@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { emitNode } from "../script-gen/node-emitter.js";
 import { emitPython } from "../script-gen/python-emitter.js";
 import { formatRows } from "../exporters/row-formatters.js";
@@ -57,7 +58,11 @@ async function runtime() {
     helpers.replace(/^import .*$/gm, "") +
       "\nexport { fsFormatRows, fsNumber, fsB64, fsCell, fsHeaders };\n",
   );
-  _runtime = await import(harness);
+  // An absolute Windows path is not a URL: import("C:\\...") is read as the
+  // scheme "c:" and rejected with ERR_UNSUPPORTED_ESM_URL_SCHEME. On POSIX the
+  // path happens to be a valid relative-free specifier, so this only ever
+  // failed on Windows.
+  _runtime = await import(pathToFileURL(harness).href);
   return _runtime;
 }
 

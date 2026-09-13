@@ -103,3 +103,77 @@ test("binary files are marked binary, so normalisation cannot corrupt them", () 
     );
   }
 });
+
+// ── Paths that are only wrong on Windows ────────────────────────────────────
+//
+// Windows got past the format gate for the first time and immediately failed
+// 17 tests that Linux passes, in two shapes and one root cause: a file:// URL
+// and an OS path are not interchangeable, and on POSIX they look like they
+// are.
+//
+//   `new URL(…).pathname` on Windows is "/D:/a/Verquill/…". The leading slash
+//   makes it an invalid path — passed as `cwd`, spawnSync reported ENOENT
+//   against node.exe itself, naming everything except the cause.
+//
+//   `import("C:\\…")` reads "c:" as a URL scheme and throws
+//   ERR_UNSUPPORTED_ESM_URL_SCHEME. On POSIX the same string imports fine.
+//
+// Neither can be caught by running the suite on Linux, which is why this is a
+// source check rather than a behavioural one. The browser suites are
+// Linux-only too, so nothing else in the project would notice.
+
+import { readdirSync as _readdir } from "node:fs";
+
+const TEST_FILES = _readdir(new URL("../tests/", import.meta.url)).filter((f) =>
+  f.endsWith(".test.mjs"),
+);
+
+test("no test converts a file URL to a path with .pathname", () => {
+  // fileURLToPath() is the conversion that is correct on both platforms.
+  const offences = [];
+  for (const f of TEST_FILES) {
+    const src = read(`../tests/${f}`);
+    src.split("\n").forEach((line, i) => {
+      // Skip comments — this file and two others explain the rule by naming it.
+      if (/^\s*(\/\/|\*)/.test(line)) return;
+      if (/\bURL\([^)]*\)\s*\.pathname\b/.test(line)) {
+        offences.push(`tests/${f}:${i + 1}: ${line.trim().slice(0, 80)}`);
+      }
+    });
+  }
+  assert.deepEqual(
+    offences,
+    [],
+    "use fileURLToPath(url) instead of url.pathname",
+  );
+});
+
+test("no test imports a bare OS path", () => {
+  // import() takes a URL. pathToFileURL(p).href is the portable form.
+  const offences = [];
+  for (const f of TEST_FILES) {
+    const src = read(`../tests/${f}`);
+    src.split("\n").forEach((line, i) => {
+      if (/^\s*(\/\/|\*)/.test(line)) return;
+      const m = line.match(/\bimport\((\w+)\)/);
+      if (!m) return;
+      // Follow the identifier to where it is declared rather than judging it
+      // by its name. The first version of this check read the name, decided
+      // `MODULE` did not look like a URL, and flagged
+      // `const MODULE = new URL(...).href` — which is exactly right already.
+      const decl = src.match(
+        new RegExp(`(?:const|let|var)\\s+${m[1]}\\s*=\\s*([^;]+);`),
+      );
+      const holdsUrl =
+        decl && /\.href\b|pathToFileURL|^\s*new URL\(/.test(decl[1]);
+      if (!holdsUrl) {
+        offences.push(`tests/${f}:${i + 1}: import(${m[1]})`);
+      }
+    });
+  }
+  assert.deepEqual(
+    offences,
+    [],
+    "import() needs a URL: use pathToFileURL(p).href",
+  );
+});

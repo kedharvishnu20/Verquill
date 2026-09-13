@@ -16,10 +16,13 @@ import { spawn } from "node:child_process";
 import { mkdtemp, writeFile, rm, readdir, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { compilePipeline } from "../script-gen/pipeline-compiler.js";
 import { emitNode } from "../script-gen/node-emitter.js";
 
-const ROOT = new URL("..", import.meta.url).pathname;
+// fileURLToPath, not .pathname: on Windows the latter keeps a leading slash
+// ("/D:/a/Verquill"), which is not a directory any process can chdir into.
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 /** The same search the MCP runner does, so the two agree about what exists. */
 async function findBrowser() {
