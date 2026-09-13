@@ -78,8 +78,15 @@ function runPy(body) {
     // The pipeline's own imports pull in playwright and requests; the helpers
     // below need neither, and this box need not have them installed to answer
     // the question being asked.
+    //
+    // The \b matters more than it looks. Without it the allowlist matches a
+    // prefix rather than a name: `re` matches the start of `requests`, so
+    // `import requests` was kept rather than stripped, and every one of these
+    // tests then depended on the machine happening to have requests installed.
+    // Locally it did; a clean CI runner did not, and nine tests failed there
+    // while passing here. The allowlist has to name whole modules.
     head.replace(
-      /^(import |from )(?!asyncio|os|re|sys|io|json|csv|time|random|base64|urllib).*$/gm,
+      /^(import |from )(?!(?:asyncio|os|re|sys|io|json|csv|time|random|base64|urllib)\b).*$/gm,
       "",
     ) +
       "\n" +
