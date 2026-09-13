@@ -4580,6 +4580,58 @@ async function _navigateTo(tabId, url, runState, runId, opts = {}) {
       `${what}: the page was still loading after ${Math.round(ms / 1000)}s — continuing anyway.`,
       runId,
     );
+    await _noteProxyFailure(runState, what);
+  }
+}
+
+/**
+ * Charge a failed navigation to the proxy that was carrying it.
+ *
+ * `markProxyFailure` existed, counted failures, and flipped a proxy to dead at
+ * the third one — and was imported by this file and called by nothing. So the
+ * pool's health only ever changed when the user pressed Test in Settings, and
+ * a proxy that had started refusing connections mid-run went on being selected
+ * for every subsequent run.
+ *
+ * A navigation that never finished is the honest signal available here: it is
+ * what the proxy is for, and it is the failure the run can attribute. It is
+ * not proof — a slow site times out too — which is why three are needed before
+ * a proxy is written off rather than one.
+ *
+ * Rotating immediately afterwards, rather than waiting for the cadence, is the
+ * point of noticing at all.
+ */
+async function _noteProxyFailure(runState, what) {
+  const held = runState?.proxyEntry;
+  if (!runState?.proxyHeld || !held) return;
+
+  const died = await markProxyFailure(held.host, held.port).catch(() => false);
+  if (!died) return;
+
+  _broadcastLog(
+    "warn-log",
+    `${held.host}:${held.port} failed three times and is marked dead — ${what} ` +
+      "could not load a page through it.",
+    runState.runId,
+  );
+  const next = await rotateProxy({
+    domain: _hostOf(runState.targetOrigin),
+  }).catch(() => null);
+  if (next) {
+    runState.proxyEntry = { host: next.host, port: next.port };
+    _broadcastLog(
+      "info-log",
+      `Switched to ${next.host}:${next.port}.`,
+      runState.runId,
+    );
+  } else {
+    runState.proxyHeld = false;
+    runState.proxyEntry = null;
+    _broadcastLog(
+      "warn-log",
+      "No live proxy is left in the pool — the rest of this run goes direct.",
+      runState.runId,
+    );
   }
 }
 
@@ -5422,6 +5474,9 @@ async function _startRunProxy(runState) {
     return;
   }
   runState.proxyHeld = true;
+  // Which one, not just that there is one. Failure reporting needs a name,
+  // and `proxyHeld` being a boolean is why nothing could report a failure.
+  runState.proxyEntry = { host: entry.host, port: entry.port };
   // Recorded outside the run state as well: a service worker that is torn down
   // mid-run loses `_runStates`, and the browser would be left proxied with
   // nothing remembering to undo it. Bootstrap reads this.
@@ -5458,6 +5513,7 @@ async function _maybeRotateProxy(runState) {
     domain: _hostOf(runState.targetOrigin),
   }).catch(() => null);
   if (next) {
+    runState.proxyEntry = { host: next.host, port: next.port };
     _broadcastLog(
       "info-log",
       `Rotated to ${next.host}:${next.port} after ${runState.proxyNavCount} page loads.`,

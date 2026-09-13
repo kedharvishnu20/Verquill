@@ -9,6 +9,7 @@
 // going through somebody's proxy". Most of what follows tests the giving back.
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   calls,
   reset,
@@ -164,4 +165,98 @@ test("the browser is not left proxied when a run is cut off", async () => {
   const after = await globalThis.chrome.storage.local.get("vq_proxy_held_v1");
   assert.ok(!after.vq_proxy_held_v1, "the note outlived the run holding it");
   await endRun(runId);
+});
+
+// ── Failures the pool never heard about ─────────────────────────────────────
+//
+// `markProxyFailure` counted failures and wrote a proxy off at the third one.
+// The service worker imported it and called it from nowhere. So the pool's
+// health only ever changed when someone pressed Test in Settings, and a proxy
+// that started refusing connections mid-run went on being selected for every
+// run after it.
+//
+// It also only mutated the in-memory pool. An MV3 worker is torn down whenever
+// it idles, so even a proxy that had been marked dead was alive again minutes
+// later, its failCount restarting from zero — the threshold could never be
+// reached across restarts.
+
+test("a failure survives the pool being reloaded", async () => {
+  // The property that matters, asserted by round-tripping rather than by
+  // counting storage writes: an MV3 worker is torn down whenever it idles, so
+  // a failCount that lives only in `_pool` restarts from zero every time and
+  // the dead-at-three threshold can never be reached.
+  const { clearPool, addToPool, markProxyFailure, loadPool, getPool } =
+    await import("../background/proxy-manager.js");
+  reset();
+  await clearPool();
+  addToPool([{ host: "10.0.0.1", port: 8080, type: "http", alive: true }]);
+
+  await markProxyFailure("10.0.0.1", 8080);
+  assert.equal(getPool()[0].failCount, 1, "the failure was not counted");
+
+  // Stand in for the worker restarting: drop the in-memory pool and read it
+  // back from storage, which is all a fresh worker has.
+  await loadPool();
+  assert.equal(
+    getPool()[0]?.failCount,
+    1,
+    "the failure was forgotten when the pool was reloaded",
+  );
+});
+
+test("three failures kill a proxy, one does not", async () => {
+  const { clearPool, addToPool, markProxyFailure, getPool } =
+    await import("../background/proxy-manager.js");
+  reset();
+  await clearPool();
+  addToPool([{ host: "10.0.0.1", port: 8080, type: "http", alive: true }]);
+
+  assert.equal(await markProxyFailure("10.0.0.1", 8080), false);
+  assert.equal(getPool()[0].alive, true, "one timeout is not proof");
+  assert.equal(await markProxyFailure("10.0.0.1", 8080), false);
+  assert.equal(await markProxyFailure("10.0.0.1", 8080), true);
+  assert.equal(
+    getPool()[0].alive,
+    false,
+    "three failures did not write it off",
+  );
+});
+
+test("a failure against a proxy not in the pool is ignored, not thrown", async () => {
+  const { clearPool, addToPool, markProxyFailure } =
+    await import("../background/proxy-manager.js");
+  reset();
+  await clearPool();
+  addToPool([{ host: "10.0.0.1", port: 8080, type: "http", alive: true }]);
+  assert.equal(await markProxyFailure("203.0.113.9", 1080), false);
+});
+
+test("the run reports a failed navigation against the proxy carrying it", () => {
+  // Source-read rather than a full run: the wiring is the thing that was
+  // missing, and it is what a future refactor would drop again.
+  const worker = readFileSync(
+    new URL("../background/service-worker.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    worker,
+    /await _noteProxyFailure\(runState, what\)/,
+    "a navigation that never loaded no longer tells the pool",
+  );
+  assert.match(
+    worker,
+    /runState\.proxyEntry = \{ host: entry\.host, port: entry\.port \}/,
+    "the run no longer records which proxy it holds, so nothing can be blamed",
+  );
+  const fn = worker.match(
+    /async function _noteProxyFailure\([\s\S]*?\n\}/,
+  )?.[0];
+  assert.ok(fn, "_noteProxyFailure is gone");
+  assert.match(fn, /markProxyFailure\(/);
+  assert.match(fn, /rotateProxy\(/, "a dead proxy is not replaced");
+  assert.match(
+    fn,
+    /goes direct/,
+    "an empty pool leaves the run silently proxied through nothing",
+  );
 });

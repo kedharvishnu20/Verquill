@@ -774,12 +774,13 @@ export async function testAllProxies({
  * @param {number} port
  * @param {number} [retryCount=3]
  */
-export function markProxyFailure(host, port, retryCount = 3) {
+export async function markProxyFailure(host, port, retryCount = 3) {
   const key = `${host}:${port}`;
   const entry = _pool.find((p) => `${p.host}:${p.port}` === key);
-  if (!entry) return;
+  if (!entry) return false;
   entry.failCount = (entry.failCount ?? 0) + 1;
-  if (entry.failCount >= retryCount) {
+  const died = entry.failCount >= retryCount;
+  if (died) {
     entry.alive = false;
     logger.warn(MODULE, "proxy-dead", {
       host,
@@ -787,6 +788,15 @@ export function markProxyFailure(host, port, retryCount = 3) {
       failCount: entry.failCount,
     });
   }
+  // Persisted, because the in-memory pool does not survive the worker.
+  //
+  // This used to mutate `_pool` and stop. An MV3 service worker is torn down
+  // whenever it goes idle, so a proxy marked dead was alive again minutes
+  // later and got selected for the next run — the count never reaching the
+  // threshold because it kept restarting from zero. The health state is only
+  // worth keeping if it outlives the process that learned it.
+  await savePool().catch(() => {});
+  return died;
 }
 
 /**
