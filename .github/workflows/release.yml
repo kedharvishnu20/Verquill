@@ -91,7 +91,7 @@ jobs:
           echo "$zip is $size bytes"
           [ "$size" -gt 100000 ] || { echo "::error::$zip is too small to be the extension"; exit 1; }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: extension-package
           path: verquill-*.zip
